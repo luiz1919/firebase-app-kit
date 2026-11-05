@@ -7,6 +7,8 @@ pantallas, estilos ni datos de cada app.
 | Importar | Que hace |
 |----------|----------|
 | `firebase-app-kit` | `initFirebase(config)`: arranca Auth y Firestore con cache persistente. `firebaseConfigFromEnv(env, fallback)`, `isFirebaseConfigured(config)` |
+| `firebase-app-kit/react` | Hooks: `useAuthUser(auth)` (sesion), `useEmailLogin(auth)` (formulario de login), `usePopover()` (panel que se cierra al tocar fuera o con Escape), `useOnline()` |
+| `firebase-app-kit/utils` | Sin dependencias (vale en tests de Node): `authErrorMessage`, `EMAIL_DOMAINS`, `hasEmailDomain`, `completeEmailDomain`, `SyncState`, `SYNC_LABELS`, `todayIso`, `formatDate` |
 | `firebase-app-kit/vite` | Plugin `firebaseAppKit()`: define `__APP_VERSION__`, `__APP_COMMIT__`, `__BUILD_TIME__` y `__FIREBASE_CONFIG__` |
 | `firebase-app-kit/deploy` | `deploy({ appName, projectId })`: el flujo de `npm run deploy` |
 | `firebase-app-kit/globals` | Tipos de las constantes anteriores |
@@ -15,7 +17,7 @@ pantallas, estilos ni datos de cada app.
 ## Instalar en una app
 
 ```bash
-npm install github:luiz1919/firebase-app-kit#v0.1.0
+npm install github:luiz1919/firebase-app-kit#v0.2.0
 ```
 
 Se instala desde GitHub, sin npm. `dist/` esta en el repo para que la
@@ -79,6 +81,25 @@ await deploy({ appName: 'Mi App', projectId: 'mi-proyecto', root: new URL('..', 
 }
 ```
 
+Login (los hooks solo llevan la logica; el HTML y los estilos son de cada app):
+
+```tsx
+import { useEmailLogin } from 'firebase-app-kit/react'
+import { EMAIL_DOMAINS } from 'firebase-app-kit/utils'
+
+const { email, setEmail, error, submitting, emailRef, hasDomain, completeDomain, submit } = useEmailLogin(auth)
+// <form onSubmit={submit}>, <input ref={emailRef} value={email} ...>,
+// chips {!hasDomain && EMAIL_DOMAINS.map(...)} con onClick={() => completeDomain(domain)}
+```
+
+Panel desplegable:
+
+```tsx
+const { open, toggle, buttonRef, panelRef, panelId } = usePopover()
+// <button ref={buttonRef} aria-expanded={open} aria-controls={panelId} onClick={toggle}>
+// {open && <div ref={panelRef} id={panelId}>...</div>}
+```
+
 ## Deploy
 
 `npm run deploy [-- --check|--patch|--minor|--major]` hace, y se detiene en
@@ -107,9 +128,9 @@ npm run check    # lint, tipos, tests y compilacion a dist/
 
 Para publicar una version:
 
-1. Cambia `version` en `package.json` y ejecuta `npm run check`.
-2. Haz commit **incluyendo `dist/`** y crea el tag: `git tag v0.2.0`.
+1. Cambia `version` en `package.json` (por ejemplo a 0.3.0) y ejecuta `npm run check`.
+2. Haz commit **incluyendo `dist/`** y crea el tag: `git tag v0.3.0`.
 3. `git push && git push --tags`.
-4. En cada app: `npm install github:luiz1919/firebase-app-kit#v0.2.0`.
+4. En cada app: `npm install github:luiz1919/firebase-app-kit#v0.3.0`.
 
 El CI comprueba que `dist/` corresponde al codigo de `src/`.
