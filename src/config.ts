@@ -1,6 +1,6 @@
-// Configuracion web de Firebase. Sin dependencias: la usan el navegador, el plugin de Vite y el deploy.
+// Firebase web config. No dependencies: used by the browser, the Vite plugin and the deploy.
 
-/** Campos de la configuracion web de Firebase (bloque firebaseConfig de la consola). */
+/** Fields of the Firebase web config (the firebaseConfig block from the console). */
 export interface FirebaseWebConfig {
   apiKey?: string
   authDomain?: string
@@ -21,8 +21,8 @@ const ENV_KEYS = {
 } as const
 
 /**
- * Lee la configuracion de las variables VITE_FIREBASE_* (.env.local). Los campos vacios o que
- * faltan se toman de `fallback` (por ejemplo, el archivo firebaseConfig que lee el plugin de Vite).
+ * Reads the config from the VITE_FIREBASE_* variables (.env.local). Empty or missing fields
+ * are taken from `fallback` (for example, the firebaseConfig file read by the Vite plugin).
  */
 export function firebaseConfigFromEnv(
   env: Readonly<Record<string, unknown>>,
@@ -36,7 +36,7 @@ export function firebaseConfigFromEnv(
   return config
 }
 
-/** Hay configuracion real: no faltan los campos imprescindibles ni quedan los textos de .env.example. */
+/** There is a real config: no required field is missing and no .env.example placeholder is left. */
 export function isFirebaseConfigured(config: FirebaseWebConfig): boolean {
   return Boolean(config.apiKey && config.projectId && config.appId && !config.apiKey.startsWith('PEGA_AQUI'))
 }

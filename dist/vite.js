@@ -2,11 +2,11 @@ import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 const CONFIG_FIELDS = new Set(['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId', 'measurementId']);
-/** Lee el objeto firebaseConfig de un archivo copiado de la consola de Firebase. Si no existe, devuelve {}. */
+/** Reads the firebaseConfig object from a file copied from the Firebase console. Returns {} if it does not exist. */
 export async function readFirebaseConfigFile(path) {
     if (!existsSync(path))
         return {};
-    // Solo se carga TypeScript si la app usa el archivo: asi se lee el objeto sin ejecutar el codigo.
+    // TypeScript is only loaded if the app uses the file: it reads the object without running the code.
     const { default: ts } = await import('typescript');
     const source = ts.createSourceFile('firebaseConfig.ts', readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true);
     const config = {};
@@ -32,7 +32,7 @@ function packageVersion(root) {
     const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
     return version;
 }
-/** Commit compilado, para saber que codigo hay publicado. Vacio si no hay git. */
+/** Built commit, to know which code is published. Empty without git. */
 function gitCommit(root) {
     try {
         return execSync('git rev-parse --short HEAD', { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
@@ -42,11 +42,11 @@ function gitCommit(root) {
     }
 }
 /**
- * Define las constantes globales de la app al compilar (sus tipos estan en firebase-app-kit/globals):
- * - __APP_VERSION__: version de package.json.
- * - __APP_COMMIT__: commit de git, o '' si no hay.
- * - __BUILD_TIME__: fecha de compilacion en ISO; '' en desarrollo.
- * - __FIREBASE_CONFIG__: configuracion leida de `firebaseConfigFile`, o {}.
+ * Defines the app's global constants at build time (their types are in firebase-app-kit/globals):
+ * - __APP_VERSION__: version from package.json.
+ * - __APP_COMMIT__: git commit, or '' if none.
+ * - __BUILD_TIME__: build date in ISO format; '' in development.
+ * - __FIREBASE_CONFIG__: config read from `firebaseConfigFile`, or {}.
  */
 export function firebaseAppKit(options = {}) {
     return {

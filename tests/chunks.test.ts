@@ -6,7 +6,7 @@ import type { DocumentReference, WriteBatch } from 'firebase/firestore'
 import { joinChunks, stageChunkedFile, stageChunkedFileDelete } from '../src/chunks.ts'
 import { CHUNK_BYTES } from '../src/utils/files.ts'
 
-// Solo se crean referencias: no hay conexion con Firebase.
+// Only references are created: there is no connection to Firebase.
 const app = initializeApp({ projectId: 'demo-firebase-app-kit', apiKey: 'test', appId: 'test' }, 'chunks-test')
 const db = getFirestore(app)
 after(() => deleteApp(app))
@@ -68,7 +68,7 @@ test('joinChunks recupera los bytes guardados, en cualquier orden', () => {
   const chunks = writes.slice(1).map((write) => write.data).reverse()
   const info = { size: bytes.length, chunkCount: 2 }
   assert.deepEqual(joinChunks(chunks, info), bytes)
-  // Un trozo sobrante (de una version anterior) no estorba.
+  // An extra chunk (from a previous version) does no harm.
   assert.deepEqual(joinChunks([...chunks, { index: 2, data: Bytes.fromUint8Array(bytesOf(5)) }], info), bytes)
 })
 

@@ -2,18 +2,18 @@ import type { Plugin } from 'vite';
 import type { FirebaseWebConfig } from './config.ts';
 export interface FirebaseAppKitOptions {
     /**
-     * Archivo con el bloque `const firebaseConfig = { ... }` copiado de la consola de Firebase,
-     * relativo a la raiz de la app. Si no existe, la configuracion sale solo de las variables VITE_FIREBASE_*.
+     * File with the `const firebaseConfig = { ... }` block copied from the Firebase console,
+     * relative to the app root. If it does not exist, the config comes only from the VITE_FIREBASE_* variables.
      */
     firebaseConfigFile?: string;
 }
-/** Lee el objeto firebaseConfig de un archivo copiado de la consola de Firebase. Si no existe, devuelve {}. */
+/** Reads the firebaseConfig object from a file copied from the Firebase console. Returns {} if it does not exist. */
 export declare function readFirebaseConfigFile(path: string): Promise<FirebaseWebConfig>;
 /**
- * Define las constantes globales de la app al compilar (sus tipos estan en firebase-app-kit/globals):
- * - __APP_VERSION__: version de package.json.
- * - __APP_COMMIT__: commit de git, o '' si no hay.
- * - __BUILD_TIME__: fecha de compilacion en ISO; '' en desarrollo.
- * - __FIREBASE_CONFIG__: configuracion leida de `firebaseConfigFile`, o {}.
+ * Defines the app's global constants at build time (their types are in firebase-app-kit/globals):
+ * - __APP_VERSION__: version from package.json.
+ * - __APP_COMMIT__: git commit, or '' if none.
+ * - __BUILD_TIME__: build date in ISO format; '' in development.
+ * - __FIREBASE_CONFIG__: config read from `firebaseConfigFile`, or {}.
  */
 export declare function firebaseAppKit(options?: FirebaseAppKitOptions): Plugin;

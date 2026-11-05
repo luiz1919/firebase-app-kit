@@ -1,4 +1,4 @@
-/** Campos de la configuracion web de Firebase (bloque firebaseConfig de la consola). */
+/** Fields of the Firebase web config (the firebaseConfig block from the console). */
 export interface FirebaseWebConfig {
     apiKey?: string;
     authDomain?: string;
@@ -9,9 +9,9 @@ export interface FirebaseWebConfig {
     measurementId?: string;
 }
 /**
- * Lee la configuracion de las variables VITE_FIREBASE_* (.env.local). Los campos vacios o que
- * faltan se toman de `fallback` (por ejemplo, el archivo firebaseConfig que lee el plugin de Vite).
+ * Reads the config from the VITE_FIREBASE_* variables (.env.local). Empty or missing fields
+ * are taken from `fallback` (for example, the firebaseConfig file read by the Vite plugin).
  */
 export declare function firebaseConfigFromEnv(env: Readonly<Record<string, unknown>>, fallback?: FirebaseWebConfig): FirebaseWebConfig;
-/** Hay configuracion real: no faltan los campos imprescindibles ni quedan los textos de .env.example. */
+/** There is a real config: no required field is missing and no .env.example placeholder is left. */
 export declare function isFirebaseConfigured(config: FirebaseWebConfig): boolean;

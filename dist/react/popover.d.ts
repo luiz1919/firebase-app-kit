@@ -1,8 +1,8 @@
 /**
- * Panel que se abre con un boton (estado de sincronizacion, "Acerca de"...). Se cierra al tocar
- * fuera del boton y del panel, o con Escape (y entonces el foco vuelve al boton).
- * Conecta `buttonRef` al boton (con aria-expanded={open} y aria-controls={panelId}) y
- * `panelRef` al panel (con id={panelId}).
+ * Panel opened by a button (sync status, "Acerca de" (About)...). It closes on a tap outside
+ * the button and the panel, or with Escape (and then focus returns to the button).
+ * Connect `buttonRef` to the button (with aria-expanded={open} and aria-controls={panelId}) and
+ * `panelRef` to the panel (with id={panelId}).
  */
 export declare function usePopover(): {
     open: boolean;

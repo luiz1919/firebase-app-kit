@@ -1,4 +1,4 @@
-# Comprueba lint, tipos, tests y que dist/ corresponde a src/ en cada PR y en cada subida a main.
+# Checks lint, types, tests and that dist/ matches src/ on every PR and every push to main.
 name: Comprobaciones
 
 on:

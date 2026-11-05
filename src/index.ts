@@ -1,4 +1,4 @@
-// Entrada para el navegador (usa Firebase).
+// Browser entry point (uses Firebase).
 export { joinChunks, readChunkedFile, stageChunkedFile, stageChunkedFileDelete } from './chunks.ts'
 export type { ChunkedFileInfo } from './chunks.ts'
 export { firebaseConfigFromEnv, isFirebaseConfigured } from './config.ts'

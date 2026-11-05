@@ -1,25 +1,25 @@
 import type { DocumentData, DocumentReference, WriteBatch } from 'firebase/firestore';
-/** Lo que hay que saber de un archivo guardado para leerlo y comprobarlo. */
+/** What is needed about a stored file to read it and check it. */
 export interface ChunkedFileInfo {
     size: number;
     chunkCount: number;
 }
 /**
- * Anade a `batch` la ficha del archivo (`metadata`, en `parent`) y sus trozos. Al confirmar el lote
- * se guarda todo o nada. Si la ficha lleva chunkCount, debe coincidir con los trozos de `bytes`.
+ * Adds the file metadata (`metadata`, at `parent`) and its chunks to `batch`. Committing the batch
+ * saves all or nothing. If the metadata has chunkCount, it must match the chunks of `bytes`.
  */
 export declare function stageChunkedFile(batch: WriteBatch, parent: DocumentReference, bytes: Uint8Array, metadata: DocumentData): void;
-/** Anade a `batch` el borrado de la ficha y de sus trozos. */
+/** Adds the deletion of the metadata and its chunks to `batch`. */
 export declare function stageChunkedFileDelete(batch: WriteBatch, parent: DocumentReference, chunkCount: number): void;
 /**
- * Junta los trozos leidos de Firestore. Devuelve null si falta alguno o no cuadran con la ficha
- * (numero, orden, tamano). Los trozos sobrantes (indice >= chunkCount) se ignoran.
+ * Joins the chunks read from Firestore. Returns null if any is missing or they do not match the
+ * metadata (count, order, size). Extra chunks (index >= chunkCount) are ignored.
  */
 export declare function joinChunks(chunks: readonly unknown[], { size, chunkCount }: ChunkedFileInfo): Uint8Array<ArrayBuffer> | null;
 /**
- * Lee y junta los trozos del archivo de `parent`. Devuelve null si no estan todos.
- * Por defecto Firestore usa la cache sin conexion (si los trozos se leyeron antes); con
- * `fromServer: true` siempre los pide al servidor.
+ * Reads and joins the chunks of the file at `parent`. Returns null if they are not all there.
+ * By default Firestore uses the cache when offline (if the chunks were read before); with
+ * `fromServer: true` it always asks the server.
  */
 export declare function readChunkedFile(parent: DocumentReference, info: ChunkedFileInfo, { fromServer }?: {
     fromServer?: boolean;

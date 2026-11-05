@@ -1,11 +1,11 @@
-// Constantes que fija el plugin de Vite firebaseAppKit() al compilar.
-// Para usarlas, anade "firebase-app-kit/globals" a "types" en tsconfig (ya lo hace config/tsconfig.app.json).
+// Constants set at build time by the firebaseAppKit() Vite plugin.
+// To use them, add "firebase-app-kit/globals" to "types" in tsconfig (config/tsconfig.app.json already does).
 
-/** Version de package.json. */
+/** Version from package.json. */
 declare const __APP_VERSION__: string
-/** Commit de git compilado, o '' si no hay git. */
+/** Git commit that was built, or '' without git. */
 declare const __APP_COMMIT__: string
-/** Fecha de compilacion en ISO; '' en desarrollo. */
+/** Build date in ISO format; '' in development. */
 declare const __BUILD_TIME__: string
-/** Configuracion leida del archivo firebaseConfig, o {} si la app no lo usa. */
+/** Config read from the firebaseConfig file, or {} if the app does not use it. */
 declare const __FIREBASE_CONFIG__: import('./dist/config.js').FirebaseWebConfig

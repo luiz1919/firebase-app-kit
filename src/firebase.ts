@@ -15,11 +15,11 @@ export interface FirebaseServices {
 }
 
 /**
- * Arranca Firebase si la configuracion esta completa. Si no lo esta, todo es null y la app
- * puede mostrar su aviso de configuracion pendiente.
+ * Starts Firebase if the config is complete. Otherwise everything is null and the app
+ * can show its "setup pending" notice.
  *
- * Firestore usa la cache persistente del navegador (IndexedDB), compartida entre pestanas:
- * sin conexion se siguen leyendo los datos y los cambios pendientes se suben al recuperarla.
+ * Firestore uses the browser's persistent cache (IndexedDB), shared across tabs:
+ * offline, data can still be read and pending changes are uploaded when back online.
  */
 export function initFirebase(config: FirebaseWebConfig): FirebaseServices {
   const isConfigured = isFirebaseConfigured(config)

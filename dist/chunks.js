@@ -1,12 +1,12 @@
-// Archivos guardados en Firestore a trozos: la ficha en un documento y los bytes en su
-// subcoleccion chunks/0000, chunks/0001... con la forma { index, data: Bytes }.
-// Asi no hace falta Firebase Storage. Cada app decide donde va la ficha y que campos lleva.
+// Files stored in Firestore in chunks: the metadata in one document and the bytes in its
+// chunks/0000, chunks/0001... subcollection, shaped { index, data: Bytes }.
+// This way Firebase Storage is not needed. Each app decides where the metadata goes and which fields it has.
 import { Bytes, collection, doc, getDocs, getDocsFromServer } from 'firebase/firestore';
 import { CHUNK_BYTES, chunkCountOf } from "./utils/files.js";
 const chunkRef = (parent, index) => doc(parent, 'chunks', String(index).padStart(4, '0'));
 /**
- * Anade a `batch` la ficha del archivo (`metadata`, en `parent`) y sus trozos. Al confirmar el lote
- * se guarda todo o nada. Si la ficha lleva chunkCount, debe coincidir con los trozos de `bytes`.
+ * Adds the file metadata (`metadata`, at `parent`) and its chunks to `batch`. Committing the batch
+ * saves all or nothing. If the metadata has chunkCount, it must match the chunks of `bytes`.
  */
 export function stageChunkedFile(batch, parent, bytes, metadata) {
     const chunkCount = chunkCountOf(bytes.length);
@@ -19,15 +19,15 @@ export function stageChunkedFile(batch, parent, bytes, metadata) {
         batch.set(chunkRef(parent, index), { index, data: Bytes.fromUint8Array(data) });
     }
 }
-/** Anade a `batch` el borrado de la ficha y de sus trozos. */
+/** Adds the deletion of the metadata and its chunks to `batch`. */
 export function stageChunkedFileDelete(batch, parent, chunkCount) {
     for (let index = 0; index < chunkCount; index += 1)
         batch.delete(chunkRef(parent, index));
     batch.delete(parent);
 }
 /**
- * Junta los trozos leidos de Firestore. Devuelve null si falta alguno o no cuadran con la ficha
- * (numero, orden, tamano). Los trozos sobrantes (indice >= chunkCount) se ignoran.
+ * Joins the chunks read from Firestore. Returns null if any is missing or they do not match the
+ * metadata (count, order, size). Extra chunks (index >= chunkCount) are ignored.
  */
 export function joinChunks(chunks, { size, chunkCount }) {
     const valid = chunks
@@ -51,9 +51,9 @@ export function joinChunks(chunks, { size, chunkCount }) {
     return bytes;
 }
 /**
- * Lee y junta los trozos del archivo de `parent`. Devuelve null si no estan todos.
- * Por defecto Firestore usa la cache sin conexion (si los trozos se leyeron antes); con
- * `fromServer: true` siempre los pide al servidor.
+ * Reads and joins the chunks of the file at `parent`. Returns null if they are not all there.
+ * By default Firestore uses the cache when offline (if the chunks were read before); with
+ * `fromServer: true` it always asks the server.
  */
 export async function readChunkedFile(parent, info, { fromServer = false } = {}) {
     const chunks = collection(parent, 'chunks');

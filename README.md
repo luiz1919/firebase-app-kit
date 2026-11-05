@@ -1,34 +1,37 @@
 # firebase-app-kit
 
-Piezas comunes de las apps Vite + React + Firebase de `labs/`
-(CommunityAssistant y TripPlanner). Solo contiene infraestructura: nada de
-pantallas, estilos ni datos de cada app.
+Shared building blocks for the Vite + React + Firebase apps in `labs/`
+(CommunityAssistant and TripPlanner). It only contains infrastructure: no
+screens, styles or app-specific data.
 
-| Importar | Que hace |
-|----------|----------|
-| `firebase-app-kit` | `initFirebase(config)`: arranca Auth y Firestore con cache persistente. `firebaseConfigFromEnv(env, fallback)`, `isFirebaseConfigured(config)`. Archivos a trozos en Firestore: `stageChunkedFile`, `stageChunkedFileDelete`, `readChunkedFile`, `joinChunks` |
-| `firebase-app-kit/react` | Hooks: `useAuthUser(auth)` (sesion), `useEmailLogin(auth)` (formulario de login), `usePopover()` (panel que se cierra al tocar fuera o con Escape), `useOnline()` |
-| `firebase-app-kit/utils` | Sin dependencias (vale en tests de Node): `authErrorMessage`, `EMAIL_DOMAINS`, `hasEmailDomain`, `canCompleteEmailDomain`, `completeEmailDomain`, `SyncState`, `SYNC_LABELS`, `todayIso`, `formatDate`, `fileTypeOf`, `readFileBytes`, `downloadBlob`, `CHUNK_BYTES`, `chunkCountOf` |
-| `firebase-app-kit/vite` | Plugin `firebaseAppKit()`: define `__APP_VERSION__`, `__APP_COMMIT__`, `__BUILD_TIME__` y `__FIREBASE_CONFIG__` |
-| `firebase-app-kit/deploy` | `deploy({ appName, projectId })`: el flujo de `npm run deploy` |
-| `firebase-app-kit/globals` | Tipos de las constantes anteriores |
-| `firebase-app-kit/config/*` | Bases de `tsconfig` y `oxlint` |
+| Import | What it does |
+|--------|--------------|
+| `firebase-app-kit` | `initFirebase(config)`: starts Auth and Firestore with a persistent cache. `firebaseConfigFromEnv(env, fallback)`, `isFirebaseConfigured(config)`. Chunked files in Firestore: `stageChunkedFile`, `stageChunkedFileDelete`, `readChunkedFile`, `joinChunks` |
+| `firebase-app-kit/react` | Hooks: `useAuthUser(auth)` (session), `useEmailLogin(auth)` (login form), `usePopover()` (panel that closes on an outside tap or Escape), `useOnline()` |
+| `firebase-app-kit/utils` | No dependencies (works in Node tests): `authErrorMessage`, `EMAIL_DOMAINS`, `hasEmailDomain`, `canCompleteEmailDomain`, `completeEmailDomain`, `SyncState`, `SYNC_LABELS`, `todayIso`, `formatDate`, `fileTypeOf`, `readFileBytes`, `downloadBlob`, `CHUNK_BYTES`, `chunkCountOf` |
+| `firebase-app-kit/vite` | `firebaseAppKit()` plugin: defines `__APP_VERSION__`, `__APP_COMMIT__`, `__BUILD_TIME__` and `__FIREBASE_CONFIG__` |
+| `firebase-app-kit/deploy` | `deploy({ appName, projectId })`: the `npm run deploy` flow |
+| `firebase-app-kit/globals` | Types for the constants above |
+| `firebase-app-kit/config/*` | Base `tsconfig` and `oxlint` configs |
 
-## Instalar en una app
+## Install in an app
 
 ```bash
 npm install github:luiz1919/firebase-app-kit#v0.3.0
 ```
 
-Se instala desde GitHub, sin npm. `dist/` esta en el repo para que la
-instalacion no tenga que compilar nada. Si el repo es privado, `npm install`
-y `npm ci` necesitan acceso a GitHub con tus credenciales de git (y el CI de
-la app, un token con permiso de lectura sobre este repo).
+It is installed from GitHub, not from npm. `dist/` is committed so installing
+does not need to compile anything. If the repo is private, `npm install` and
+`npm ci` need GitHub access through your git credentials (and the app's CI
+needs a token with read access to this repo).
 
-`react`, `firebase`, `vite` y `typescript` los pone la app: el kit no instala
-su propia copia (dos copias de Firebase no comparten la sesion ni la cache).
+The app provides `react`, `firebase`, `vite` and `typescript`: the kit does not
+install its own copy (two copies of Firebase do not share the session or the cache).
 
-## Uso
+User-facing text (login errors, sync labels, dates) is in Spanish, like the
+apps' UI.
+
+## Usage
 
 `vite.config.ts`:
 
@@ -38,8 +41,8 @@ import { firebaseAppKit } from 'firebase-app-kit/vite'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  // firebaseConfigFile es opcional: el bloque firebaseConfig copiado de la consola,
-  // que se usa para los campos que no esten en .env.local.
+  // firebaseConfigFile is optional: the firebaseConfig block copied from the console,
+  // used for any field missing from .env.local.
   plugins: [react(), firebaseAppKit({ firebaseConfigFile: 'firebaseConfig' })],
 })
 ```
@@ -57,10 +60,10 @@ export const { auth, db } = initFirebase(firebaseConfigFromEnv(import.meta.env, 
 ```js
 import { deploy } from 'firebase-app-kit/deploy'
 
-await deploy({ appName: 'Mi App', projectId: 'mi-proyecto', root: new URL('..', import.meta.url) })
+await deploy({ appName: 'My App', projectId: 'my-project', root: new URL('..', import.meta.url) })
 ```
 
-`tsconfig.app.json` (las rutas relativas se quedan en la app):
+`tsconfig.app.json` (relative paths stay in the app):
 
 ```json
 {
@@ -70,7 +73,7 @@ await deploy({ appName: 'Mi App', projectId: 'mi-proyecto', root: new URL('..', 
 }
 ```
 
-`tsconfig.node.json` igual, con `config/tsconfig.node.json` e `"include": ["vite.config.ts"]`.
+`tsconfig.node.json` works the same way, with `config/tsconfig.node.json` and `"include": ["vite.config.ts"]`.
 
 `.oxlintrc.json`:
 
@@ -81,7 +84,7 @@ await deploy({ appName: 'Mi App', projectId: 'mi-proyecto', root: new URL('..', 
 }
 ```
 
-Login (los hooks solo llevan la logica; el HTML y los estilos son de cada app):
+Login (the hooks only hold the logic; each app owns its HTML and styles):
 
 ```tsx
 import { useEmailLogin } from 'firebase-app-kit/react'
@@ -89,11 +92,11 @@ import { EMAIL_DOMAINS } from 'firebase-app-kit/utils'
 
 const { email, setEmail, error, submitting, emailRef, hasDomain, canCompleteDomain, completeDomain, submit } = useEmailLogin(auth)
 // <form onSubmit={submit}>, <input ref={emailRef} value={email} ...>,
-// chips {!hasDomain && EMAIL_DOMAINS.map(...)} con onClick={() => completeDomain(domain)}
-// y disabled={!canCompleteDomain}: hasta que hay un usuario valido no se puede elegir dominio.
+// chips {!hasDomain && EMAIL_DOMAINS.map(...)} with onClick={() => completeDomain(domain)}
+// and disabled={!canCompleteDomain}: a domain cannot be picked until there is a valid username.
 ```
 
-Panel desplegable:
+Dropdown panel:
 
 ```tsx
 const { open, toggle, buttonRef, panelRef, panelId } = usePopover()
@@ -101,54 +104,59 @@ const { open, toggle, buttonRef, panelRef, panelId } = usePopover()
 // {open && <div ref={panelRef} id={panelId}>...</div>}
 ```
 
-Archivos adjuntos en Firestore (sin Firebase Storage). La ficha va en un documento que elige la
-app y los bytes en su subcoleccion `chunks/0000`, `chunks/0001`... con la forma
-`{ index, data: Bytes }` y trozos de `CHUNK_BYTES` (750 KiB). **No cambies ese formato**: los
-archivos ya guardados y las reglas de Firestore de las apps dependen de el.
+File attachments in Firestore (no Firebase Storage). The metadata goes in a
+document chosen by the app, and the bytes in its `chunks/0000`, `chunks/0001`...
+subcollection, shaped `{ index, data: Bytes }`, in chunks of `CHUNK_BYTES`
+(750 KiB). **Do not change this format**: files already stored and the apps'
+Firestore rules depend on it.
 
 ```ts
 import { readChunkedFile, stageChunkedFile, stageChunkedFileDelete } from 'firebase-app-kit'
 import { chunkCountOf, fileTypeOf, readFileBytes } from 'firebase-app-kit/utils'
 
-const bytes = await readFileBytes(file)                 // con limite de tiempo (iOS)
-const type = fileTypeOf(bytes)                          // por contenido: PDF, JPEG o PNG
+const bytes = await readFileBytes(file)                 // with a time limit (iOS)
+const type = fileTypeOf(bytes)                          // by content: PDF, JPEG or PNG
 const batch = writeBatch(db)
 stageChunkedFile(batch, ref, bytes, { name: file.name, type, size: bytes.length, chunkCount: chunkCountOf(bytes.length) })
-await batch.commit()                                    // ficha y trozos: todo o nada
-const back = await readChunkedFile(ref, { size, chunkCount })   // null si falta algun trozo
+await batch.commit()                                    // metadata and chunks: all or nothing
+const back = await readChunkedFile(ref, { size, chunkCount })   // null if any chunk is missing
 ```
 
 ## Deploy
 
-`npm run deploy [-- --check|--patch|--minor|--major]` hace, y se detiene en
-el primer paso que falle:
+`npm run deploy [-- --check|--patch|--minor|--major]` runs these steps and
+stops at the first one that fails:
 
-1. Comprueba Firebase CLI y pregunta el tipo de cambio (o usa el indicado).
-   Sin terminal interactiva hay que indicarlo.
+1. Checks the Firebase CLI and asks for the change type (or uses the one given).
+   Without an interactive terminal the type must be passed.
 2. `npm ci`.
-3. Comprueba que la configuracion Firebase que se va a compilar esta completa
-   y es del `projectId` indicado.
-4. `npm run lint` y, si la app tiene script `test`, `npm test`.
-5. Escribe la nueva version en `package.json` y `package-lock.json` antes de
-   compilar, para que "Acerca de" muestre la version publicada.
-6. `npm run build` y publica **solo Hosting** en el proyecto indicado.
+3. Checks that the Firebase config about to be compiled is complete and belongs
+   to the given `projectId`.
+4. `npm run lint` and, if the app has a `test` script, `npm test`.
+5. Writes the new version to `package.json` and `package-lock.json` before
+   building, so the "Acerca de" (About) panel shows the published version.
+6. `npm run build`, then publishes **Hosting only** to the given project.
 
-Si fallan la compilacion o la publicacion, restaura `package.json` y
-`package-lock.json`. No hace commits ni tags. `--check` hace los pasos 2 a 4 y
-la compilacion, sin tocar la version ni publicar.
+If the build or the publish fails, it restores `package.json` and
+`package-lock.json`. It does not create commits or tags. `--check` runs steps 2
+to 4 and the build, without touching the version or publishing.
 
-## Desarrollo del kit
+## Developing the kit
 
 ```bash
 npm install
-npm run check    # lint, tipos, tests y compilacion a dist/
+npm run check    # lint, types, tests and build to dist/
 ```
 
-Para publicar una version:
+To release a version:
 
-1. Cambia `version` en `package.json` (por ejemplo a 0.4.0) y ejecuta `npm run check`.
-2. Haz commit **incluyendo `dist/`** y crea el tag: `git tag v0.4.0`.
+1. Change `version` in `package.json` (for example to 0.4.0) and run `npm run check`.
+2. Commit **including `dist/`** and create the tag: `git tag v0.4.0`.
 3. `git push && git push --tags`.
-4. En cada app: `npm install github:luiz1919/firebase-app-kit#v0.4.0`.
+4. In each app: `npm install github:luiz1919/firebase-app-kit#v0.4.0`.
+   The tag must be in the command: editing it by hand in `package.json` and
+   running `npm install` is not enough, because npm does not re-resolve a git
+   dependency that is already in `package-lock.json` (it says "up to date" and
+   keeps the previous version).
 
-El CI comprueba que `dist/` corresponde al codigo de `src/`.
+CI checks that `dist/` matches the code in `src/`.

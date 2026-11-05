@@ -5,15 +5,15 @@ import type { Auth, User } from 'firebase/auth'
 import { authErrorMessage, canCompleteEmailDomain, completeEmailDomain, hasEmailDomain } from '../utils/auth.ts'
 
 export interface AuthUserState {
-  /** Usuario con sesion iniciada. Las sesiones anonimas no cuentan. */
+  /** Signed-in user. Anonymous sessions do not count. */
   user: User | null
-  /** Ya se sabe si hay sesion. Sin Firebase configurado (auth null) es true desde el principio. */
+  /** Whether the session state is known. Without Firebase configured (auth null) it is true from the start. */
   ready: boolean
-  /** Error al comprobar la sesion, o ''. */
+  /** Error while checking the session, or ''. */
   error: string
 }
 
-/** Sigue la sesion de Firebase Auth. */
+/** Tracks the Firebase Auth session. */
 export function useAuthUser(auth: Auth | null): AuthUserState {
   const [state, setState] = useState<AuthUserState>({ user: null, ready: !auth, error: '' })
 
@@ -34,10 +34,10 @@ export function useAuthUser(auth: Auth | null): AuthUserState {
 }
 
 /**
- * Estado y acciones del formulario de inicio de sesion con correo y contrasena. La app pone el
- * HTML: conecta `emailRef` y `passwordRef` a los campos, `submit` al formulario y muestra
- * `EMAIL_DOMAINS` (de firebase-app-kit/utils) con `completeDomain` mientras `!hasDomain`,
- * deshabilitados mientras `!canCompleteDomain`.
+ * State and actions of the email/password login form. The app provides the HTML: it connects
+ * `emailRef` and `passwordRef` to the fields, `submit` to the form, and shows `EMAIL_DOMAINS`
+ * (from firebase-app-kit/utils) with `completeDomain` while `!hasDomain`, disabled while
+ * `!canCompleteDomain`.
  */
 export function useEmailLogin(auth: Auth | null) {
   const [email, setEmail] = useState('')
@@ -49,7 +49,7 @@ export function useEmailLogin(auth: Auth | null) {
 
   const canCompleteDomain = canCompleteEmailDomain(email)
 
-  /** Completa el dominio y pasa a la contrasena. Sin nombre de usuario valido no hace nada. */
+  /** Completes the domain and moves to the password. Does nothing without a valid username. */
   function completeDomain(domain: string) {
     if (!canCompleteDomain) return
     setEmail(completeEmailDomain(email, domain))
@@ -66,7 +66,7 @@ export function useEmailLogin(auth: Auth | null) {
     setSubmitting(true)
     setError('')
     try {
-      // Si va bien, useAuthUser recibe la sesion y la app cambia de pantalla.
+      // On success, useAuthUser receives the session and the app switches screens.
       await signInWithEmailAndPassword(auth, email.trim(), password)
       setPassword('')
     } catch (failure) {
@@ -86,7 +86,7 @@ export function useEmailLogin(auth: Auth | null) {
     emailRef,
     passwordRef,
     hasDomain: hasEmailDomain(email),
-    /** Hay nombre de usuario valido: los chips de dominio deben estar deshabilitados mientras sea false. */
+    /** There is a valid username: the domain chips must be disabled while this is false. */
     canCompleteDomain,
     completeDomain,
     submit,

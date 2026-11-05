@@ -1,4 +1,4 @@
-// Hooks de React. Solo la logica: el HTML y los estilos los pone cada app.
+// React hooks. Logic only: each app provides the HTML and styles.
 export { useAuthUser, useEmailLogin } from './auth.ts'
 export type { AuthUserState } from './auth.ts'
 export { useOnline } from './online.ts'

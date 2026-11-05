@@ -8,7 +8,7 @@ import { firebaseAppKit, readFirebaseConfigFile } from '../src/vite.ts'
 const dir = mkdtempSync(join(tmpdir(), 'firebase-app-kit-'))
 after(() => rmSync(dir, { recursive: true, force: true }))
 
-// Asi lo copia la consola de Firebase.
+// This is how the Firebase console copies it.
 const CONSOLE_SNIPPET = `// Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 // Your web app's Firebase configuration

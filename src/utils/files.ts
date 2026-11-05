@@ -1,20 +1,20 @@
-// Archivos adjuntos (PDF y fotos). Sin dependencias.
+// File attachments (PDFs and photos). No dependencies.
 
 /**
- * Tamano de cada trozo con que se guarda un archivo en Firestore. Un documento admite hasta 1 MiB:
- * cada trozo deja margen para los demas campos. NO cambiar: los archivos ya guardados y las reglas
- * de Firestore de las apps (data.size() <= 768000) dependen de este valor.
+ * Size of each chunk a file is stored in, in Firestore. A document holds up to 1 MiB: each chunk
+ * leaves room for the other fields. Do NOT change: files already stored and the apps' Firestore
+ * rules (data.size() <= 768000) depend on this value.
  */
 export const CHUNK_BYTES = 750 * 1024
 
-/** Numero de trozos de un archivo de `size` bytes (al menos 1). */
+/** Number of chunks for a file of `size` bytes (at least 1). */
 export const chunkCountOf = (size: number): number => Math.max(1, Math.ceil(size / CHUNK_BYTES))
 
 export type FileType = 'application/pdf' | 'image/jpeg' | 'image/png'
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
 
-/** Tipo de un archivo segun su contenido (no segun el nombre), o null si no es PDF, JPEG ni PNG. */
+/** File type from its content (not its name), or null if it is not a PDF, JPEG or PNG. */
 export function fileTypeOf(bytes: Uint8Array): FileType | null {
   if (bytes.length >= 5 && String.fromCharCode(...bytes.subarray(0, 5)) === '%PDF-') return 'application/pdf'
   if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg'
@@ -23,9 +23,9 @@ export function fileTypeOf(bytes: Uint8Array): FileType | null {
 }
 
 /**
- * Lee un archivo elegido por el usuario. En iOS la lectura puede fallar o quedarse colgada, asi que
- * se limita el tiempo y el error incluye su nombre tecnico para poder diagnosticarlo.
- * Hay que leerlo antes de vaciar el <input>: en iOS eso puede invalidar el archivo.
+ * Reads a file picked by the user. On iOS reading can fail or hang, so it is time-limited and
+ * the error includes its technical name to help diagnose it.
+ * It must be read before clearing the <input>: on iOS that can invalidate the file.
  */
 export async function readFileBytes(file: Blob & { name: string }, timeoutMs = 15_000): Promise<Uint8Array<ArrayBuffer>> {
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -42,7 +42,7 @@ export async function readFileBytes(file: Blob & { name: string }, timeoutMs = 1
   }
 }
 
-/** Descarga un archivo generado en el navegador. */
+/** Downloads a file generated in the browser. */
 export function downloadBlob(blob: Blob, name: string): void {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')

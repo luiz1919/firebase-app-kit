@@ -1,20 +1,20 @@
 import type { FormEvent } from 'react';
 import type { Auth, User } from 'firebase/auth';
 export interface AuthUserState {
-    /** Usuario con sesion iniciada. Las sesiones anonimas no cuentan. */
+    /** Signed-in user. Anonymous sessions do not count. */
     user: User | null;
-    /** Ya se sabe si hay sesion. Sin Firebase configurado (auth null) es true desde el principio. */
+    /** Whether the session state is known. Without Firebase configured (auth null) it is true from the start. */
     ready: boolean;
-    /** Error al comprobar la sesion, o ''. */
+    /** Error while checking the session, or ''. */
     error: string;
 }
-/** Sigue la sesion de Firebase Auth. */
+/** Tracks the Firebase Auth session. */
 export declare function useAuthUser(auth: Auth | null): AuthUserState;
 /**
- * Estado y acciones del formulario de inicio de sesion con correo y contrasena. La app pone el
- * HTML: conecta `emailRef` y `passwordRef` a los campos, `submit` al formulario y muestra
- * `EMAIL_DOMAINS` (de firebase-app-kit/utils) con `completeDomain` mientras `!hasDomain`,
- * deshabilitados mientras `!canCompleteDomain`.
+ * State and actions of the email/password login form. The app provides the HTML: it connects
+ * `emailRef` and `passwordRef` to the fields, `submit` to the form, and shows `EMAIL_DOMAINS`
+ * (from firebase-app-kit/utils) with `completeDomain` while `!hasDomain`, disabled while
+ * `!canCompleteDomain`.
  */
 export declare function useEmailLogin(auth: Auth | null): {
     email: string;
@@ -26,7 +26,7 @@ export declare function useEmailLogin(auth: Auth | null): {
     emailRef: import("react").RefObject<HTMLInputElement | null>;
     passwordRef: import("react").RefObject<HTMLInputElement | null>;
     hasDomain: boolean;
-    /** Hay nombre de usuario valido: los chips de dominio deben estar deshabilitados mientras sea false. */
+    /** There is a valid username: the domain chips must be disabled while this is false. */
     canCompleteDomain: boolean;
     completeDomain: (domain: string) => void;
     submit: (event: FormEvent<HTMLFormElement>) => Promise<void>;

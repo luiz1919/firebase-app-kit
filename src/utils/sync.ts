@@ -1,6 +1,6 @@
-// Estado de sincronizacion con Firestore que muestra la cabecera de cada app.
-// Cada app decide cuando esta en cada estado y que detalle mostrar: "Sin conexion" no significa
-// lo mismo en todas (en unas los cambios esperan a la red, en otras no se puede guardar).
+// Firestore sync state shown in each app's header. Labels are in Spanish, like the apps' UI.
+// Each app decides when it is in each state and which detail to show: "Sin conexion" (offline)
+// does not mean the same in all of them (in some, changes wait for the network; in others, saving is blocked).
 
 export type SyncState = 'synced' | 'syncing' | 'offline' | 'error'
 

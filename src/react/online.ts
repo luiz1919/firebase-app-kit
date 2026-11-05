@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-/** Si el navegador tiene conexion, actualizado con los eventos online/offline. */
+/** Whether the browser is online, updated with the online/offline events. */
 export function useOnline(): boolean {
   const [online, setOnline] = useState(() => navigator.onLine)
 
