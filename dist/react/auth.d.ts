@@ -13,7 +13,8 @@ export declare function useAuthUser(auth: Auth | null): AuthUserState;
 /**
  * Estado y acciones del formulario de inicio de sesion con correo y contrasena. La app pone el
  * HTML: conecta `emailRef` y `passwordRef` a los campos, `submit` al formulario y muestra
- * `EMAIL_DOMAINS` (de firebase-app-kit/utils) con `completeDomain` mientras `!hasDomain`.
+ * `EMAIL_DOMAINS` (de firebase-app-kit/utils) con `completeDomain` mientras `!hasDomain`,
+ * deshabilitados mientras `!canCompleteDomain`.
  */
 export declare function useEmailLogin(auth: Auth | null): {
     email: string;
@@ -25,6 +26,8 @@ export declare function useEmailLogin(auth: Auth | null): {
     emailRef: import("react").RefObject<HTMLInputElement | null>;
     passwordRef: import("react").RefObject<HTMLInputElement | null>;
     hasDomain: boolean;
+    /** Hay nombre de usuario valido: los chips de dominio deben estar deshabilitados mientras sea false. */
+    canCompleteDomain: boolean;
     completeDomain: (domain: string) => void;
     submit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
 };

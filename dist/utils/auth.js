@@ -3,6 +3,11 @@
 export const EMAIL_DOMAINS = ['gmail.com', 'hotmail.com', 'outlook.es', 'yahoo.es', 'icloud.com'];
 /** El correo ya tiene dominio (algo como "@ejemplo.com"). */
 export const hasEmailDomain = (email) => /@[^@\s]+\.[^@\s]+$/.test(email);
+/**
+ * Ya hay un nombre de usuario valido antes de la @ (letras sin acentos, numeros y . _ - + etc.):
+ * hasta entonces no tiene sentido ofrecer los dominios.
+ */
+export const canCompleteEmailDomain = (email) => /^[\w.!#$%&'*+/=?^`{|}~-]+$/.test(email.split('@')[0].trim());
 /** Sustituye lo que haya tras la @ por el dominio elegido. */
 export const completeEmailDomain = (email, domain) => `${email.split('@')[0].trim()}@${domain}`;
 /**

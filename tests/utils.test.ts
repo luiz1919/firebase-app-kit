@@ -1,12 +1,26 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { SYNC_LABELS, authErrorMessage, completeEmailDomain, formatDate, hasEmailDomain, todayIso } from '../src/utils/index.ts'
+import {
+  CHUNK_BYTES, SYNC_LABELS, authErrorMessage, canCompleteEmailDomain, chunkCountOf, completeEmailDomain, fileTypeOf, formatDate,
+  hasEmailDomain, readFileBytes, todayIso,
+} from '../src/utils/index.ts'
 
 test('hasEmailDomain reconoce un correo con dominio', () => {
   assert.equal(hasEmailDomain('ana@gmail.com'), true)
   assert.equal(hasEmailDomain('ana@gmail'), false)
   assert.equal(hasEmailDomain('ana'), false)
   assert.equal(hasEmailDomain('ana@'), false)
+})
+
+test('canCompleteEmailDomain exige un nombre de usuario valido antes de la @', () => {
+  assert.equal(canCompleteEmailDomain(''), false)
+  assert.equal(canCompleteEmailDomain('   '), false)
+  assert.equal(canCompleteEmailDomain('@gmail.com'), false)
+  assert.equal(canCompleteEmailDomain('ana luis'), false)
+  assert.equal(canCompleteEmailDomain('añ'), false)
+  assert.equal(canCompleteEmailDomain('a'), true)
+  assert.equal(canCompleteEmailDomain(' ana.l+viajes_1 '), true)
+  assert.equal(canCompleteEmailDomain('ana@hotm'), true)
 })
 
 test('completeEmailDomain sustituye lo que hay tras la @', () => {
@@ -33,4 +47,26 @@ test('formatDate no se desplaza de dia y todayIso usa la fecha local', () => {
 
 test('hay etiqueta para cada estado de sincronizacion', () => {
   assert.deepEqual(Object.keys(SYNC_LABELS).sort(), ['error', 'offline', 'synced', 'syncing'])
+})
+
+test('fileTypeOf reconoce PDF, JPEG y PNG por su contenido', () => {
+  assert.equal(fileTypeOf(new TextEncoder().encode('%PDF-1.7')), 'application/pdf')
+  assert.equal(fileTypeOf(new Uint8Array([0xff, 0xd8, 0xff, 0xe0])), 'image/jpeg')
+  assert.equal(fileTypeOf(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])), 'image/png')
+  assert.equal(fileTypeOf(new TextEncoder().encode('%PDF')), null)
+  assert.equal(fileTypeOf(new Uint8Array([1, 2, 3])), null)
+})
+
+test('chunkCountOf usa trozos de 750 KiB y al menos uno', () => {
+  assert.equal(CHUNK_BYTES, 768000)
+  assert.equal(chunkCountOf(0), 1)
+  assert.equal(chunkCountOf(CHUNK_BYTES), 1)
+  assert.equal(chunkCountOf(CHUNK_BYTES + 1), 2)
+  assert.equal(chunkCountOf(5 * 1024 * 1024), 7)
+})
+
+test('readFileBytes lee el archivo y falla con su nombre si tarda demasiado', async () => {
+  assert.deepEqual(await readFileBytes(new File(['abc'], 'a.txt')), new TextEncoder().encode('abc'))
+  const stuck = { name: 'colgado.pdf', arrayBuffer: () => new Promise<ArrayBuffer>(() => {}) } as unknown as File
+  await assert.rejects(readFileBytes(stuck, 20), /«colgado\.pdf» \(TimeoutError\)/)
 })

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword } from 'firebase/auth';
-import { authErrorMessage, completeEmailDomain, hasEmailDomain } from "../utils/auth.js";
+import { authErrorMessage, canCompleteEmailDomain, completeEmailDomain, hasEmailDomain } from "../utils/auth.js";
 /** Sigue la sesion de Firebase Auth. */
 export function useAuthUser(auth) {
     const [state, setState] = useState({ user: null, ready: !auth, error: '' });
@@ -18,7 +18,8 @@ export function useAuthUser(auth) {
 /**
  * Estado y acciones del formulario de inicio de sesion con correo y contrasena. La app pone el
  * HTML: conecta `emailRef` y `passwordRef` a los campos, `submit` al formulario y muestra
- * `EMAIL_DOMAINS` (de firebase-app-kit/utils) con `completeDomain` mientras `!hasDomain`.
+ * `EMAIL_DOMAINS` (de firebase-app-kit/utils) con `completeDomain` mientras `!hasDomain`,
+ * deshabilitados mientras `!canCompleteDomain`.
  */
 export function useEmailLogin(auth) {
     const [email, setEmail] = useState('');
@@ -27,25 +28,13 @@ export function useEmailLogin(auth) {
     const [submitting, setSubmitting] = useState(false);
     const emailRef = useRef(null);
     const passwordRef = useRef(null);
-    /** Completa el dominio. Si ya hay nombre de usuario pasa a la contrasena; si no, vuelve al correo. */
+    const canCompleteDomain = canCompleteEmailDomain(email);
+    /** Completa el dominio y pasa a la contrasena. Sin nombre de usuario valido no hace nada. */
     function completeDomain(domain) {
-        const next = completeEmailDomain(email, domain);
-        setEmail(next);
-        window.requestAnimationFrame(() => {
-            if (!next.startsWith('@')) {
-                passwordRef.current?.focus();
-                return;
-            }
-            emailRef.current?.focus();
-            try {
-                // Cursor al principio, para escribir el usuario delante de la @. Los navegadores que siguen
-                // la especificacion no permiten seleccionar en campos type="email" y lanzan un error.
-                emailRef.current?.setSelectionRange(0, 0);
-            }
-            catch {
-                // El cursor se queda donde lo deje el navegador.
-            }
-        });
+        if (!canCompleteDomain)
+            return;
+        setEmail(completeEmailDomain(email, domain));
+        window.requestAnimationFrame(() => passwordRef.current?.focus());
     }
     async function submit(event) {
         event.preventDefault();
@@ -79,6 +68,8 @@ export function useEmailLogin(auth) {
         emailRef,
         passwordRef,
         hasDomain: hasEmailDomain(email),
+        /** Hay nombre de usuario valido: los chips de dominio deben estar deshabilitados mientras sea false. */
+        canCompleteDomain,
         completeDomain,
         submit,
     };

@@ -2,6 +2,11 @@
 export declare const EMAIL_DOMAINS: readonly ["gmail.com", "hotmail.com", "outlook.es", "yahoo.es", "icloud.com"];
 /** El correo ya tiene dominio (algo como "@ejemplo.com"). */
 export declare const hasEmailDomain: (email: string) => boolean;
+/**
+ * Ya hay un nombre de usuario valido antes de la @ (letras sin acentos, numeros y . _ - + etc.):
+ * hasta entonces no tiene sentido ofrecer los dominios.
+ */
+export declare const canCompleteEmailDomain: (email: string) => boolean;
 /** Sustituye lo que haya tras la @ por el dominio elegido. */
 export declare const completeEmailDomain: (email: string, domain: string) => string;
 /**

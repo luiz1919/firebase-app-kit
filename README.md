@@ -6,9 +6,9 @@ pantallas, estilos ni datos de cada app.
 
 | Importar | Que hace |
 |----------|----------|
-| `firebase-app-kit` | `initFirebase(config)`: arranca Auth y Firestore con cache persistente. `firebaseConfigFromEnv(env, fallback)`, `isFirebaseConfigured(config)` |
+| `firebase-app-kit` | `initFirebase(config)`: arranca Auth y Firestore con cache persistente. `firebaseConfigFromEnv(env, fallback)`, `isFirebaseConfigured(config)`. Archivos a trozos en Firestore: `stageChunkedFile`, `stageChunkedFileDelete`, `readChunkedFile`, `joinChunks` |
 | `firebase-app-kit/react` | Hooks: `useAuthUser(auth)` (sesion), `useEmailLogin(auth)` (formulario de login), `usePopover()` (panel que se cierra al tocar fuera o con Escape), `useOnline()` |
-| `firebase-app-kit/utils` | Sin dependencias (vale en tests de Node): `authErrorMessage`, `EMAIL_DOMAINS`, `hasEmailDomain`, `completeEmailDomain`, `SyncState`, `SYNC_LABELS`, `todayIso`, `formatDate` |
+| `firebase-app-kit/utils` | Sin dependencias (vale en tests de Node): `authErrorMessage`, `EMAIL_DOMAINS`, `hasEmailDomain`, `canCompleteEmailDomain`, `completeEmailDomain`, `SyncState`, `SYNC_LABELS`, `todayIso`, `formatDate`, `fileTypeOf`, `readFileBytes`, `downloadBlob`, `CHUNK_BYTES`, `chunkCountOf` |
 | `firebase-app-kit/vite` | Plugin `firebaseAppKit()`: define `__APP_VERSION__`, `__APP_COMMIT__`, `__BUILD_TIME__` y `__FIREBASE_CONFIG__` |
 | `firebase-app-kit/deploy` | `deploy({ appName, projectId })`: el flujo de `npm run deploy` |
 | `firebase-app-kit/globals` | Tipos de las constantes anteriores |
@@ -17,7 +17,7 @@ pantallas, estilos ni datos de cada app.
 ## Instalar en una app
 
 ```bash
-npm install github:luiz1919/firebase-app-kit#v0.2.0
+npm install github:luiz1919/firebase-app-kit#v0.3.0
 ```
 
 Se instala desde GitHub, sin npm. `dist/` esta en el repo para que la
@@ -87,9 +87,10 @@ Login (los hooks solo llevan la logica; el HTML y los estilos son de cada app):
 import { useEmailLogin } from 'firebase-app-kit/react'
 import { EMAIL_DOMAINS } from 'firebase-app-kit/utils'
 
-const { email, setEmail, error, submitting, emailRef, hasDomain, completeDomain, submit } = useEmailLogin(auth)
+const { email, setEmail, error, submitting, emailRef, hasDomain, canCompleteDomain, completeDomain, submit } = useEmailLogin(auth)
 // <form onSubmit={submit}>, <input ref={emailRef} value={email} ...>,
 // chips {!hasDomain && EMAIL_DOMAINS.map(...)} con onClick={() => completeDomain(domain)}
+// y disabled={!canCompleteDomain}: hasta que hay un usuario valido no se puede elegir dominio.
 ```
 
 Panel desplegable:
@@ -98,6 +99,23 @@ Panel desplegable:
 const { open, toggle, buttonRef, panelRef, panelId } = usePopover()
 // <button ref={buttonRef} aria-expanded={open} aria-controls={panelId} onClick={toggle}>
 // {open && <div ref={panelRef} id={panelId}>...</div>}
+```
+
+Archivos adjuntos en Firestore (sin Firebase Storage). La ficha va en un documento que elige la
+app y los bytes en su subcoleccion `chunks/0000`, `chunks/0001`... con la forma
+`{ index, data: Bytes }` y trozos de `CHUNK_BYTES` (750 KiB). **No cambies ese formato**: los
+archivos ya guardados y las reglas de Firestore de las apps dependen de el.
+
+```ts
+import { readChunkedFile, stageChunkedFile, stageChunkedFileDelete } from 'firebase-app-kit'
+import { chunkCountOf, fileTypeOf, readFileBytes } from 'firebase-app-kit/utils'
+
+const bytes = await readFileBytes(file)                 // con limite de tiempo (iOS)
+const type = fileTypeOf(bytes)                          // por contenido: PDF, JPEG o PNG
+const batch = writeBatch(db)
+stageChunkedFile(batch, ref, bytes, { name: file.name, type, size: bytes.length, chunkCount: chunkCountOf(bytes.length) })
+await batch.commit()                                    // ficha y trozos: todo o nada
+const back = await readChunkedFile(ref, { size, chunkCount })   // null si falta algun trozo
 ```
 
 ## Deploy
@@ -128,9 +146,9 @@ npm run check    # lint, tipos, tests y compilacion a dist/
 
 Para publicar una version:
 
-1. Cambia `version` en `package.json` (por ejemplo a 0.3.0) y ejecuta `npm run check`.
-2. Haz commit **incluyendo `dist/`** y crea el tag: `git tag v0.3.0`.
+1. Cambia `version` en `package.json` (por ejemplo a 0.4.0) y ejecuta `npm run check`.
+2. Haz commit **incluyendo `dist/`** y crea el tag: `git tag v0.4.0`.
 3. `git push && git push --tags`.
-4. En cada app: `npm install github:luiz1919/firebase-app-kit#v0.3.0`.
+4. En cada app: `npm install github:luiz1919/firebase-app-kit#v0.4.0`.
 
 El CI comprueba que `dist/` corresponde al codigo de `src/`.
