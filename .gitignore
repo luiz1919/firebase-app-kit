@@ -1,0 +1,4 @@
+node_modules/
+*.tgz
+.DS_Store
+# dist/ SI se sube: las apps instalan el kit desde GitHub sin compilarlo.

@@ -1,0 +1,30 @@
+# Comprueba lint, tipos, tests y que dist/ corresponde a src/ en cada PR y en cada subida a main.
+name: Comprobaciones
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - name: dist/ esta al dia
+        run: |
+          if [ -n "$(git status --porcelain -- dist)" ]; then
+            git status --short -- dist
+            echo "dist/ no corresponde a src/: ejecuta npm run build y haz commit de dist/."
+            exit 1
+          fi
