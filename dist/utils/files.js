@@ -26,7 +26,7 @@ export function fileTypeOf(bytes) {
 export async function readFileBytes(file, timeoutMs = 15_000) {
     let timer;
     const timeout = new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new DOMException('Tiempo agotado', 'TimeoutError')), timeoutMs);
+        timer = setTimeout(() => reject(new DOMException('Timed out', 'TimeoutError')), timeoutMs);
     });
     try {
         return new Uint8Array(await Promise.race([file.arrayBuffer(), timeout]));

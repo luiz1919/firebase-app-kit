@@ -30,7 +30,7 @@ export function fileTypeOf(bytes: Uint8Array): FileType | null {
 export async function readFileBytes(file: Blob & { name: string }, timeoutMs = 15_000): Promise<Uint8Array<ArrayBuffer>> {
   let timer: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new DOMException('Tiempo agotado', 'TimeoutError')), timeoutMs)
+    timer = setTimeout(() => reject(new DOMException('Timed out', 'TimeoutError')), timeoutMs)
   })
   try {
     return new Uint8Array(await Promise.race([file.arrayBuffer(), timeout]))

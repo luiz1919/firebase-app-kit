@@ -20,7 +20,7 @@ const chunkRef = (parent: DocumentReference, index: number) => doc(parent, 'chun
 export function stageChunkedFile(batch: WriteBatch, parent: DocumentReference, bytes: Uint8Array, metadata: DocumentData): void {
   const chunkCount = chunkCountOf(bytes.length)
   if ('chunkCount' in metadata && metadata.chunkCount !== chunkCount) {
-    throw new Error(`chunkCount (${metadata.chunkCount}) no corresponde a ${bytes.length} bytes (${chunkCount} trozos).`)
+    throw new Error(`chunkCount (${metadata.chunkCount}) does not match ${bytes.length} bytes (${chunkCount} chunks).`)
   }
   batch.set(parent, metadata)
   for (let index = 0; index < chunkCount; index += 1) {

@@ -4,7 +4,7 @@ import { firebaseConfigFromEnv, isFirebaseConfigured } from '../src/config.ts'
 
 const complete = { apiKey: 'key', projectId: 'demo', appId: 'app' }
 
-test('las variables VITE_FIREBASE_* tienen prioridad y las vacias usan la alternativa', () => {
+test('VITE_FIREBASE_* variables take precedence and empty ones use the fallback', () => {
   const config = firebaseConfigFromEnv(
     { VITE_FIREBASE_API_KEY: 'env-key', VITE_FIREBASE_PROJECT_ID: '', OTHER: 'x' },
     { apiKey: 'file-key', projectId: 'file-project', appId: 'file-app' },
@@ -19,11 +19,11 @@ test('las variables VITE_FIREBASE_* tienen prioridad y las vacias usan la altern
   })
 })
 
-test('sin variables ni alternativa no hay configuracion', () => {
+test('without variables or fallback there is no config', () => {
   assert.equal(isFirebaseConfigured(firebaseConfigFromEnv({})), false)
 })
 
-test('isFirebaseConfigured exige apiKey, projectId y appId reales', () => {
+test('isFirebaseConfigured requires real apiKey, projectId and appId', () => {
   assert.equal(isFirebaseConfigured(complete), true)
   assert.equal(isFirebaseConfigured({ ...complete, appId: '' }), false)
   assert.equal(isFirebaseConfigured({ ...complete, projectId: undefined }), false)

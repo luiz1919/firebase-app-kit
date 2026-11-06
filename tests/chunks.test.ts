@@ -24,7 +24,7 @@ function recordingBatch() {
 
 const bytesOf = (size: number) => Uint8Array.from({ length: size }, (_, index) => index % 251)
 
-test('stageChunkedFile guarda la ficha y los trozos con el formato de las apps', () => {
+test('stageChunkedFile stores the metadata and the chunks in the shared app format', () => {
   const { batch, writes } = recordingBatch()
   const bytes = bytesOf(2 * CHUNK_BYTES + 10)
   const metadata = { recordId: 'r1', name: 'acta.pdf', size: bytes.length, type: 'application/pdf', chunkCount: 3 }
@@ -45,13 +45,13 @@ test('stageChunkedFile guarda la ficha y los trozos con el formato de las apps',
   assert.deepEqual(writes.map((write) => (write.data?.data as Bytes | undefined)?.toUint8Array().length), [undefined, CHUNK_BYTES, CHUNK_BYTES, 10])
 })
 
-test('stageChunkedFile rechaza una ficha con chunkCount equivocado y no escribe nada', () => {
+test('stageChunkedFile rejects metadata with a wrong chunkCount and writes nothing', () => {
   const { batch, writes } = recordingBatch()
   assert.throws(() => stageChunkedFile(batch, doc(db, 'users/u1/trips/t1/attachments/a1'), bytesOf(10), { chunkCount: 2 }), /chunkCount/)
   assert.equal(writes.length, 0)
 })
 
-test('stageChunkedFileDelete borra los trozos y la ficha', () => {
+test('stageChunkedFileDelete deletes the chunks and the metadata', () => {
   const { batch, writes } = recordingBatch()
   stageChunkedFileDelete(batch, doc(db, 'users/u1/trips/t1/attachments/a1'), 2)
   assert.deepEqual(writes.map(({ op, path }) => `${op} ${path}`), [
@@ -61,7 +61,7 @@ test('stageChunkedFileDelete borra los trozos y la ficha', () => {
   ])
 })
 
-test('joinChunks recupera los bytes guardados, en cualquier orden', () => {
+test('joinChunks recovers the stored bytes, in any order', () => {
   const { batch, writes } = recordingBatch()
   const bytes = bytesOf(CHUNK_BYTES + 123)
   stageChunkedFile(batch, doc(db, 'users/u1/attachments/a1'), bytes, {})
@@ -72,7 +72,7 @@ test('joinChunks recupera los bytes guardados, en cualquier orden', () => {
   assert.deepEqual(joinChunks([...chunks, { index: 2, data: Bytes.fromUint8Array(bytesOf(5)) }], info), bytes)
 })
 
-test('joinChunks devuelve null si los trozos no cuadran con la ficha', () => {
+test('joinChunks returns null if the chunks do not match the metadata', () => {
   const part = (index: number, size: number) => ({ index, data: Bytes.fromUint8Array(bytesOf(size)) })
   assert.equal(joinChunks([part(0, 10)], { size: 10, chunkCount: 2 }), null)
   assert.equal(joinChunks([part(0, 10), part(0, 5)], { size: 15, chunkCount: 2 }), null)

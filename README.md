@@ -17,7 +17,7 @@ screens, styles or app-specific data.
 ## Install in an app
 
 ```bash
-npm install github:luiz1919/firebase-app-kit#v0.3.0
+npm install github:luiz1919/firebase-app-kit#v0.3.1
 ```
 
 It is installed from GitHub, not from npm. `dist/` is committed so installing

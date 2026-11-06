@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { after, test } from 'node:test'
 import { buildFirebaseConfig, firebaseConfigProblem, incrementVersion, isSemver, parseDeployArgs, writeVersion } from '../src/deploy.ts'
 
-test('parseDeployArgs acepta ningun argumento, --check o un tipo de cambio', () => {
+test('parseDeployArgs accepts no argument, --check or a change type', () => {
   assert.deepEqual(parseDeployArgs([]), { checkOnly: false, versionType: null })
   assert.deepEqual(parseDeployArgs(['--check']), { checkOnly: true, versionType: null })
   assert.deepEqual(parseDeployArgs(['--minor']), { checkOnly: false, versionType: 'minor' })
@@ -14,7 +14,7 @@ test('parseDeployArgs acepta ningun argumento, --check o un tipo de cambio', () 
   assert.equal(parseDeployArgs(['--mayor']), null)
 })
 
-test('incrementVersion sigue semver', () => {
+test('incrementVersion follows semver', () => {
   assert.equal(incrementVersion('1.2.3', 'patch'), '1.2.4')
   assert.equal(incrementVersion('1.2.3', 'minor'), '1.3.0')
   assert.equal(incrementVersion('1.2.3', 'major'), '2.0.0')
@@ -26,7 +26,7 @@ test('incrementVersion sigue semver', () => {
 const dir = mkdtempSync(join(tmpdir(), 'firebase-app-kit-deploy-'))
 after(() => rmSync(dir, { recursive: true, force: true }))
 
-test('writeVersion actualiza package.json y package-lock.json, y se puede deshacer', () => {
+test('writeVersion updates package.json and package-lock.json, and can be undone', () => {
   const pkg = '{\n  "name": "app",\n  "version": "1.0.0"\n}\n'
   const lock = '{\n  "name": "app",\n  "version": "0.9.0",\n  "packages": {\n    "": { "name": "app", "version": "0.9.0" }\n  }\n}\n'
   writeFileSync(join(dir, 'package.json'), pkg)
@@ -43,7 +43,7 @@ test('writeVersion actualiza package.json y package-lock.json, y se puede deshac
   assert.equal(readFileSync(join(dir, 'package-lock.json'), 'utf8'), lock)
 })
 
-test('writeVersion no toca nada si un archivo no es JSON valido', () => {
+test('writeVersion touches nothing if a file is not valid JSON', () => {
   const pkg = '{ "version": "1.0.0" }\n'
   writeFileSync(join(dir, 'package.json'), pkg)
   writeFileSync(join(dir, 'package-lock.json'), '{ roto')
@@ -51,7 +51,7 @@ test('writeVersion no toca nada si un archivo no es JSON valido', () => {
   assert.equal(readFileSync(join(dir, 'package.json'), 'utf8'), pkg)
 })
 
-test('buildFirebaseConfig combina .env y el archivo, y no cambia process.env', async () => {
+test('buildFirebaseConfig combines .env and the file, and does not change process.env', async () => {
   const app = mkdtempSync(join(tmpdir(), 'firebase-app-kit-app-'))
   try {
     writeFileSync(join(app, 'package.json'), '{ "version": "1.0.0" }')
@@ -71,9 +71,9 @@ test('buildFirebaseConfig combina .env y el archivo, y no cambia process.env', a
   }
 })
 
-test('firebaseConfigProblem exige configuracion completa y del proyecto indicado', () => {
+test('firebaseConfigProblem requires a complete config for the given project', () => {
   const config = { apiKey: 'key', projectId: 'demo', appId: 'app' }
   assert.equal(firebaseConfigProblem(config, 'demo'), null)
-  assert.match(firebaseConfigProblem(config, 'otro') ?? '', /"demo", no de otro/)
-  assert.match(firebaseConfigProblem({ ...config, apiKey: 'PEGA_AQUI' }, 'demo') ?? '', /incompleta/)
+  assert.match(firebaseConfigProblem(config, 'other') ?? '', /"demo", not other/)
+  assert.match(firebaseConfigProblem({ ...config, apiKey: 'PEGA_AQUI' }, 'demo') ?? '', /incomplete/)
 })

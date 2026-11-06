@@ -26,7 +26,7 @@ export interface DeployArgs {
   versionType: VersionType | null
 }
 
-const USAGE = 'Uso: npm run deploy [-- --check|--patch|--minor|--major]'
+const USAGE = 'Usage: npm run deploy [-- --check|--patch|--minor|--major]'
 
 /** Parses the arguments; returns null if they are not valid. */
 export function parseDeployArgs(args: readonly string[]): DeployArgs | null {
@@ -87,9 +87,9 @@ export async function buildFirebaseConfig(root: string): Promise<FirebaseWebConf
 
 /** Reason not to publish with this config, or null if it is correct. */
 export function firebaseConfigProblem(config: FirebaseWebConfig, projectId: string): string | null {
-  if (!isFirebaseConfigured(config)) return 'La configuracion Firebase de produccion esta incompleta.'
+  if (!isFirebaseConfigured(config)) return 'The production Firebase config is incomplete.'
   if (config.projectId !== projectId) {
-    return `La configuracion Firebase de produccion es del proyecto "${config.projectId}", no de ${projectId}.`
+    return `The production Firebase config belongs to project "${config.projectId}", not ${projectId}.`
   }
   return null
 }
@@ -97,11 +97,11 @@ export function firebaseConfigProblem(config: FirebaseWebConfig, projectId: stri
 function askVersionType(current: string): Promise<VersionType> {
   return new Promise((resolve) => {
     const rl = createInterface({ input: process.stdin, output: process.stdout })
-    console.log('\n🔄 ¿Que tipo de cambio es este deploy?\n')
-    console.log(`  1. PATCH (${incrementVersion(current, 'patch')}) - Bugs, cambios UI menores, optimizaciones`)
-    console.log(`  2. MINOR (${incrementVersion(current, 'minor')}) - Nuevas funcionalidades, nuevas pantallas`)
-    console.log(`  3. MAJOR (${incrementVersion(current, 'major')}) - Cambios breaking, migracion de datos\n`)
-    rl.question('Elige (1-3): ', (answer) => {
+    console.log('\n🔄 What kind of change is this deploy?\n')
+    console.log(`  1. PATCH (${incrementVersion(current, 'patch')}) - Bug fixes, minor UI changes, optimizations`)
+    console.log(`  2. MINOR (${incrementVersion(current, 'minor')}) - New features, new screens`)
+    console.log(`  3. MAJOR (${incrementVersion(current, 'major')}) - Breaking changes, data migration\n`)
+    rl.question('Choose (1-3): ', (answer) => {
       rl.close()
       const choices: Record<string, VersionType> = { 1: 'patch', 2: 'minor', 3: 'major' }
       resolve(choices[answer.trim()] ?? 'patch')
@@ -143,7 +143,7 @@ export async function deploy(options: DeployOptions): Promise<void> {
   function fail(message: string, code = 1): never {
     if (restoreVersion) {
       restoreVersion()
-      console.error('↩️  Version restaurada: no se ha publicado nada.')
+      console.error('↩️  Version restored: nothing was published.')
     }
     console.error(`❌ ${message}`)
     process.exit(code)
@@ -153,9 +153,9 @@ export async function deploy(options: DeployOptions): Promise<void> {
     console.log(`\n$ ${command} ${commandArgs.join(' ')}`)
     const result = spawnSync(command, commandArgs, { cwd: root, stdio: 'inherit' })
     if (result.error) {
-      fail(`No se puede ejecutar ${command}. ${command === 'firebase' ? 'Instala Firebase CLI: npm install -g firebase-tools' : 'Comprueba que Node y npm estan instalados.'}`)
+      fail(`Cannot run ${command}. ${command === 'firebase' ? 'Install the Firebase CLI: npm install -g firebase-tools' : 'Check that Node and npm are installed.'}`)
     }
-    if (result.status !== 0) fail(`Error al ejecutar: ${command} ${commandArgs.join(' ')}`, result.status ?? 1)
+    if (result.status !== 0) fail(`Command failed: ${command} ${commandArgs.join(' ')}`, result.status ?? 1)
   }
 
   const readPackage = () => JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
@@ -167,54 +167,54 @@ export async function deploy(options: DeployOptions): Promise<void> {
 
   let newVersion = ''
   if (!checkOnly) {
-    console.log('\n🔐 Verificando Firebase CLI...')
+    console.log('\n🔐 Checking Firebase CLI...')
     run('firebase', ['--version'])
 
     const currentVersion = readPackage().version
-    if (!isSemver(currentVersion)) fail(`La version de package.json ("${currentVersion}") no tiene el formato MAJOR.MINOR.PATCH.`)
+    if (!isSemver(currentVersion)) fail(`The package.json version ("${currentVersion}") is not in MAJOR.MINOR.PATCH format.`)
     // Asked at the start so there is no need to wait for the build.
     if (!forcedType && !process.stdin.isTTY) {
-      fail('Sin terminal interactiva: indica el tipo de cambio con -- --patch, -- --minor o -- --major.', 2)
+      fail('No interactive terminal: pass the change type with -- --patch, -- --minor or -- --major.', 2)
     }
     const versionType = forcedType ?? (await askVersionType(currentVersion))
     newVersion = incrementVersion(currentVersion, versionType)
-    console.log(`\n📦 Version actual: ${currentVersion}`)
-    console.log(`📦 Nueva version:  ${newVersion} (${versionType.toUpperCase()})`)
+    console.log(`\n📦 Current version: ${currentVersion}`)
+    console.log(`📦 New version:     ${newVersion} (${versionType.toUpperCase()})`)
   }
 
-  console.log('\n📥 Instalando dependencias...')
+  console.log('\n📥 Installing dependencies...')
   run('npm', ['ci'])
 
   let firebaseConfig: FirebaseWebConfig
   try {
     firebaseConfig = await buildFirebaseConfig(root)
   } catch (error) {
-    fail(`No se ha podido leer la configuracion de Vite: ${error instanceof Error ? error.message : String(error)}`)
+    fail(`Could not read the Vite config: ${error instanceof Error ? error.message : String(error)}`)
   }
   const problem = firebaseConfigProblem(firebaseConfig, projectId)
-  if (problem) fail(`${problem} No se publicara nada.`)
+  if (problem) fail(`${problem} Nothing will be published.`)
 
   const hasTests = Boolean(readPackage().scripts?.test)
-  console.log(hasTests ? '\n🔍 Ejecutando lint y pruebas...' : '\n🔍 Ejecutando lint...')
+  console.log(hasTests ? '\n🔍 Running lint and tests...' : '\n🔍 Running lint...')
   run('npm', ['run', 'lint'])
   if (hasTests) run('npm', ['test'])
 
   // The version is bumped before building so "Acerca de" (About) shows the published one.
   if (!checkOnly) restoreVersion = writeVersion(root, newVersion)
 
-  console.log('\n🔨 Compilando...')
+  console.log('\n🔨 Building...')
   run('npm', ['run', 'build'])
 
   if (checkOnly) {
-    console.log('\n✅ Validacion correcta. No se ha publicado nada.\n')
+    console.log('\n✅ Validation passed. Nothing was published.\n')
     return
   }
 
-  console.log('\n🚀 Desplegando en Firebase...')
+  console.log('\n🚀 Deploying to Firebase...')
   run('firebase', ['deploy', '--config', 'firebase.json', '--only', 'hosting', '--project', projectId, '--non-interactive'])
   restoreVersion = null
-  console.log('\n✨ ¡Publicado correctamente!')
+  console.log('\n✨ Published successfully!')
   console.log(`📱 URL: https://${projectId}.web.app`)
   console.log(`📦 Version: ${newVersion}`)
-  console.log('📝 Haz commit de package.json y package-lock.json para guardar la nueva version.\n')
+  console.log('📝 Commit package.json and package-lock.json to keep the new version.\n')
 }
