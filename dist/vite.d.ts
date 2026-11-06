@@ -18,8 +18,11 @@ export interface ServiceWorkerOptions {
     /** Files outside /assets/ to keep offline, e.g. ['/manifest.webmanifest', '/icons/icon-192.png']. */
     staticFiles: string[];
 }
-/** Source of /sw.js: the shared template with the app's cache name and static files. */
-export declare function serviceWorkerSource({ cacheName, staticFiles }: ServiceWorkerOptions): string;
+/**
+ * Source of /sw.js: the shared template with the app's cache name and static files, and the
+ * /assets/ files of this build (`buildAssets`), so files loaded later with import() are kept offline.
+ */
+export declare function serviceWorkerSource({ cacheName, staticFiles }: ServiceWorkerOptions, buildAssets?: readonly string[]): string;
 /** Reads the firebaseConfig object from a file copied from the Firebase console. Returns {} if it does not exist. */
 export declare function readFirebaseConfigFile(path: string): Promise<FirebaseWebConfig>;
 /**

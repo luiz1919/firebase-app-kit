@@ -17,7 +17,7 @@ screens, styles or app-specific data.
 ## Install in an app
 
 ```bash
-npm install github:luiz1919/firebase-app-kit#v0.7.0
+npm install github:luiz1919/firebase-app-kit#v0.8.0
 ```
 
 It is installed from GitHub, not from npm. `dist/` is committed so installing
@@ -172,6 +172,9 @@ firebaseAppKit({
 - Navigation: network first; each fresh page refreshes the stored copy (new assets added, old
   ones deleted). Offline: the last stored page.
 - `/assets/` and `/icons/`: cache first. Lookups ignore `Vary` (some servers send `Vary: Origin`).
+- Files of the build loaded later with `import()` (a PDF viewer, for example) are not in the page:
+  they are stored the first time they are used and kept until a new build replaces them (the
+  plugin writes the build's `/assets/` list into `sw.js`).
 - Other origins (Firebase, Google) are not touched. Activating deletes every other cache of the origin.
 
 The app registers it itself (only in production, e.g. in `main.tsx`) and must not have a
