@@ -10,14 +10,14 @@ screens, styles or app-specific data.
 | `firebase-app-kit/react` | Hooks: `useAuthUser(auth)` (session), `useEmailLogin(auth)` (login form), `usePopover()` (panel that closes on an outside tap or Escape), `useOnline()` |
 | `firebase-app-kit/utils` | No dependencies (works in Node tests): `authErrorMessage`, `EMAIL_DOMAINS`, `hasEmailDomain`, `canCompleteEmailDomain`, `completeEmailDomain`, `SyncState`, `SYNC_LABELS`, `todayIso`, `formatDate`, `fileTimestamp`, `fileTypeOf`, `readFileBytes`, `downloadBlob`, `CHUNK_BYTES`, `chunkCountOf`. Generated files: `shareOrDownload`, `openFile`, `needsNewTap`, `isTouchDevice` (browser only when called). Text PDF reports: `PdfDocument`, `wrapPdfText`, `pdfTextWidth` |
 | `firebase-app-kit/vite` | `firebaseAppKit()` plugin: defines `__APP_VERSION__`, `__APP_COMMIT__`, `__BUILD_TIME__` and `__FIREBASE_CONFIG__`, and can generate the offline service worker (`/sw.js`) |
-| `firebase-app-kit/deploy` | `deploy({ appName, projectId })`: the `npm run deploy` flow |
+| `firebase-app-kit/deploy` | `deploy({ appName, projectId, changelog? })`: the `npm run deploy` flow, optionally updating a changelog |
 | `firebase-app-kit/globals` | Types for the constants above |
 | `firebase-app-kit/config/*` | Base `tsconfig` and `oxlint` configs |
 
 ## Install in an app
 
 ```bash
-npm install github:luiz1919/firebase-app-kit#v0.6.0
+npm install github:luiz1919/firebase-app-kit#v0.7.0
 ```
 
 It is installed from GitHub, not from npm. `dist/` is committed so installing
@@ -181,24 +181,40 @@ The app registers it itself (only in production, e.g. in `main.tsx`) and must no
 
 `npm run deploy [-- --check|--patch|--minor|--major]` releases and publishes the app in one
 go: the version in Firebase, in `package.json` and the git tag always match. Commit your own
-changes first; the script only makes the release commit. It stops at the first step that fails:
+changes first; the script only makes the release commits. It stops at the first step that fails:
 
 1. Checks the Firebase CLI and git: on the release branch (`main`, or `releaseBranch`), nothing
    uncommitted, and not behind the remote (it fetches branches and tags, which also checks access).
 2. Asks for the change type (or uses the one given; without an interactive terminal it must be
-   passed) and checks that the new `vX.Y.Z` tag does not exist yet.
+   passed) and checks that the new `vX.Y.Z` tag does not exist yet. With the `changelog` option,
+   it shows the entries the new version will get (see below).
 3. `npm ci`, checks that the Firebase config about to be compiled is complete and belongs to the
    given `projectId`, `npm run lint` and, if the app has a `test` script, `npm test`.
-4. Locally: writes the version to `package.json` and `package-lock.json`, commits them as
-   `chore(release): vX.Y.Z` and creates the annotated tag `vX.Y.Z`. This happens before building,
-   so "Acerca de" (About) shows the published version and commit.
+4. Locally: with the `changelog` option, adds the version to the changelog and commits it as
+   `docs(changelog): vX.Y.Z`; then writes the version to `package.json` and `package-lock.json`,
+   commits them as `chore(release): vX.Y.Z` and creates the annotated tag `vX.Y.Z`. This happens
+   before building, so "Acerca de" (About) shows the published version and commit.
 5. `npm run build` and publishes **Hosting only** to the given project. If either fails, the
-   commit, the tag and the version are undone: nothing published, nothing pushed.
-6. Pushes the release commit and the tag together (`git push --atomic`). If the push fails, the
+   commits, the tag, the version and the changelog are undone: nothing published, nothing pushed.
+6. Pushes the commits and the tag together (`git push --atomic`). If the push fails, the
    app is already published: the script prints the command to push it later.
 
 So a `vX.Y.Z` tag on GitHub always means "this version is published". `--check` runs step 3 and
-the build only, without touching git, the version or Firebase.
+the build only (and shows the changelog entries it would add), without touching git, the version
+or Firebase.
+
+### Changelog
+
+`deploy({ ..., changelog: 'Changelog.md' })` keeps a "Keep a Changelog" style file, newest first:
+
+- The new version (`## [vX.Y.Z] - YYYY-MM-DD`) lists the entries written by hand under
+  `## Unreleased`, if there are any. Otherwise it lists the subjects of the commits since the
+  previous tag, without the release commits and conventional prefixes (`feat(ui): add x` -> `Add x`).
+  Descriptive commit messages make a useful changelog; "more fixes" ends up as it is.
+- `## Unreleased` is left empty (`_Nothing yet._`) for the next version. Without that section, the
+  version goes before the first `## ` heading; a missing file is created.
+- With a GitHub remote, the heading links to the changes since the previous tag
+  (`[vX.Y.Z]: https://github.com/owner/repo/compare/...`, added to the links at the end).
 
 ## Developing the kit
 

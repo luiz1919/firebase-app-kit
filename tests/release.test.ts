@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, test } from 'node:test'
-import { createRelease, git, gitReleaseProblem, pushRelease, releaseTag, tagExists } from '../src/deploy.ts'
+import { commitSubjectsSince, createRelease, git, gitReleaseProblem, lastReleaseTag, pushRelease, releaseTag, tagExists } from '../src/deploy.ts'
 
 const base = mkdtempSync(join(tmpdir(), 'firebase-app-kit-release-'))
 after(() => rmSync(base, { recursive: true, force: true }))
@@ -86,4 +86,45 @@ test('pushRelease pushes the release commit and the tag together', () => {
   assert.equal(git(remote, ['rev-parse', 'v1.2.4^{commit}']), git(dir, ['rev-parse', 'HEAD']))
   assert.equal(releaseTag('1.2.4'), 'v1.2.4')
   assert.equal(gitReleaseProblem(dir, 'main'), null)
+})
+
+test('createRelease with a changelog commits it first; undo leaves everything as it was', () => {
+  const { dir } = setupRepo()
+  writeFileSync(join(dir, 'Changelog.md'), '# Changelog\n')
+  git(dir, ['add', '.'])
+  git(dir, ['commit', '-q', '-m', 'docs: add changelog'])
+  const before = git(dir, ['rev-parse', 'HEAD'])
+  const undo = createRelease(dir, '1.3.0', { file: 'Changelog.md', content: '# Changelog\n\n## v1.3.0\n' })
+
+  assert.equal(git(dir, ['log', '-2', '--format=%s']), 'chore(release): v1.3.0\ndocs(changelog): v1.3.0')
+  assert.equal(git(dir, ['show', '--name-only', '--format=', 'HEAD~1']), 'Changelog.md')
+  assert.equal(git(dir, ['show', '--name-only', '--format=', 'HEAD']), 'package-lock.json\npackage.json')
+  assert.equal(readFileSync(join(dir, 'Changelog.md'), 'utf8'), '# Changelog\n\n## v1.3.0\n')
+  assert.equal(git(dir, ['rev-parse', 'v1.3.0^{commit}']), git(dir, ['rev-parse', 'HEAD']))
+  assert.equal(git(dir, ['status', '--porcelain']), '')
+
+  undo()
+  assert.equal(git(dir, ['rev-parse', 'HEAD']), before)
+  assert.equal(tagExists(dir, 'v1.3.0'), false)
+  assert.equal(readFileSync(join(dir, 'Changelog.md'), 'utf8'), '# Changelog\n')
+  assert.equal(git(dir, ['status', '--porcelain']), '')
+
+  // A changelog that did not exist is created, and removed again by undo.
+  createRelease(dir, '1.3.0', { file: 'NEW.md', content: '# New\n' })()
+  assert.equal(git(dir, ['rev-parse', 'HEAD']), before)
+  assert.equal(git(dir, ['status', '--porcelain']), '')
+})
+
+test('lastReleaseTag and commitSubjectsSince list the commits after the latest release', () => {
+  const { dir } = setupRepo()
+  assert.equal(lastReleaseTag(dir), null)
+  assert.deepEqual(commitSubjectsSince(dir, null), ['feat: first'])
+  createRelease(dir, '1.2.4')
+  for (const subject of ['fix: a', 'feat: b']) {
+    writeFileSync(join(dir, `${subject.slice(-1)}.txt`), subject)
+    git(dir, ['add', '.'])
+    git(dir, ['commit', '-q', '-m', subject])
+  }
+  assert.equal(lastReleaseTag(dir), 'v1.2.4')
+  assert.deepEqual(commitSubjectsSince(dir, 'v1.2.4'), ['fix: a', 'feat: b'])
 })

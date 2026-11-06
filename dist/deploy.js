@@ -1,9 +1,10 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { firebaseConfigFromEnv, isFirebaseConfigured } from "./config.js";
+import { todayIso } from "./utils/dates.js";
 export const VERSION_TYPES = ['patch', 'minor', 'major'];
 const USAGE = 'Usage: npm run deploy [-- --check|--patch|--minor|--major]';
 /** Parses the arguments; returns null if they are not valid. */
@@ -107,13 +108,14 @@ export function gitReleaseProblem(root, branch) {
     return null;
 }
 /**
- * Writes the version, commits package.json and package-lock.json as "chore(release): vX.Y.Z" and
- * creates the annotated tag, all locally. Returns how to undo it (if the build or the deploy fails).
+ * Locally, and in this order: commits the changelog (if given) as "docs(changelog): vX.Y.Z", writes
+ * the version and commits package.json and package-lock.json as "chore(release): vX.Y.Z", and
+ * creates the annotated tag. Returns how to undo all of it (if the build or the deploy fails).
  */
-export function createRelease(root, version) {
+export function createRelease(root, version, changelog) {
     const tag = releaseTag(version);
     const files = ['package.json', 'package-lock.json'].filter((name) => existsSync(join(root, name)));
-    const undoSteps = [writeVersion(root, version)];
+    const undoSteps = [];
     const undo = () => {
         for (const step of [...undoSteps].reverse()) {
             try {
@@ -125,6 +127,17 @@ export function createRelease(root, version) {
         }
     };
     try {
+        if (changelog) {
+            const path = join(root, changelog.file);
+            const original = existsSync(path) ? readFileSync(path, 'utf8') : null;
+            writeFileSync(path, changelog.content);
+            undoSteps.push(() => (original === null ? rmSync(path) : writeFileSync(path, original)));
+            git(root, ['add', '--', changelog.file]);
+            undoSteps.push(() => git(root, ['reset', '-q', '--', changelog.file]));
+            git(root, ['commit', '-q', '-m', `docs(changelog): ${tag}`]);
+            undoSteps.push(() => git(root, ['reset', '-q', '--soft', 'HEAD~1']));
+        }
+        undoSteps.push(writeVersion(root, version));
         git(root, ['add', '--', ...files]);
         undoSteps.push(() => git(root, ['reset', '-q', '--', ...files]));
         git(root, ['commit', '-q', '-m', `chore(release): ${tag}`]);
@@ -138,9 +151,111 @@ export function createRelease(root, version) {
     }
     return undo;
 }
-/** Pushes the release commit and its tag together (both or neither). */
+/** Pushes the release commits and the tag together (all or nothing). */
 export function pushRelease(root, branch, version) {
     git(root, ['push', '--quiet', '--atomic', remoteOf(root, branch), `HEAD:refs/heads/${branch}`, `refs/tags/${releaseTag(version)}`]);
+}
+/** Latest vX.Y.Z tag reachable from HEAD, or null if there is none yet. */
+export function lastReleaseTag(root) {
+    try {
+        return git(root, ['describe', '--tags', '--abbrev=0', '--match', 'v[0-9]*.[0-9]*.[0-9]*']);
+    }
+    catch {
+        return null;
+    }
+}
+/** Subjects of the commits after `tag` (all of them if null), oldest first, without merges. */
+export function commitSubjectsSince(root, tag) {
+    const output = git(root, ['log', '--no-merges', '--reverse', '--format=%s', tag ? `${tag}..HEAD` : 'HEAD']);
+    return output.split('\n').filter((line) => line.trim());
+}
+const RELEASE_SUBJECT = /^(chore\(release\)|docs\(changelog\)): v\d+\.\d+\.\d+$/;
+const CONVENTIONAL_PREFIX = /^(feat|fix|docs|chore|refactor|perf|style|test|build|ci|revert)(\([^)]*\))?!?:\s*/i;
+/**
+ * Changelog notes from commit subjects: without the release commits, without conventional
+ * prefixes ("feat(ui): add x" -> "Add x"), capitalized and without repeats.
+ */
+export function releaseNotes(subjects) {
+    const notes = [];
+    for (const subject of subjects) {
+        const trimmed = subject.trim();
+        if (RELEASE_SUBJECT.test(trimmed))
+            continue;
+        const text = trimmed.replace(CONVENTIONAL_PREFIX, '');
+        if (!text)
+            continue;
+        const note = text[0].toUpperCase() + text.slice(1);
+        if (!notes.includes(note))
+            notes.push(note);
+    }
+    return notes;
+}
+/** Web address of a GitHub repo from its git remote (https or ssh), or null if it is not GitHub. */
+export function githubRepoUrl(remoteUrl) {
+    const match = remoteUrl.trim().match(/github\.com[:/]([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/);
+    return match ? `https://github.com/${match[1]}/${match[2]}` : null;
+}
+const UNRELEASED_HEADING = /^## Unreleased\s*$/i;
+const UNRELEASED_PLACEHOLDER = '_Nothing yet._';
+const LINK_REFERENCE = /^\[[^\]]+\]: /;
+/** Lines of the "## Unreleased" section, from the line after the heading to the next section or the links. */
+function unreleasedRange(lines) {
+    const heading = lines.findIndex((line) => UNRELEASED_HEADING.test(line));
+    if (heading === -1)
+        return null;
+    let end = heading + 1;
+    while (end < lines.length && !lines[end].startsWith('## ') && !LINK_REFERENCE.test(lines[end]))
+        end += 1;
+    return { start: heading + 1, end };
+}
+/** Entries written by hand under "## Unreleased" (without blank edges or the placeholder), or null if there are none. */
+export function unreleasedNotes(content) {
+    const lines = (content ?? '').split('\n');
+    const range = unreleasedRange(lines);
+    if (!range)
+        return null;
+    const section = lines.slice(range.start, range.end).filter((line) => line.trim() !== UNRELEASED_PLACEHOLDER);
+    while (section.length > 0 && !section[0].trim())
+        section.shift();
+    while (section.length > 0 && !section[section.length - 1].trim())
+        section.pop();
+    return section.length > 0 ? section : null;
+}
+/**
+ * Changelog content with the new version added, newest first ("Keep a Changelog" style):
+ * - The version lists the entries written under "## Unreleased" if there are any, otherwise the
+ *   commit notes. "Unreleased" is left empty ("_Nothing yet._") for the next version.
+ * - Without an "Unreleased" section, the version goes before the first "## " section.
+ * - With a GitHub repo, the heading is a link to the changes since the previous tag.
+ * A missing file (null) becomes a new changelog.
+ */
+export function addChangelogVersion(content, release) {
+    const tag = releaseTag(release.version);
+    const source = content ?? `# Changelog\n\n## Unreleased\n\n${UNRELEASED_PLACEHOLDER}\n`;
+    const lines = source.replace(/\r\n/g, '\n').replace(/\n+$/, '').split('\n');
+    const handWritten = unreleasedNotes(source);
+    const entries = handWritten ?? (release.notes.length > 0 ? release.notes.map((note) => `- ${note}`) : ['- No changes since the previous version.']);
+    const section = [`## ${release.repoUrl ? `[${tag}]` : tag} - ${release.date}`, '', ...entries, ''];
+    const range = unreleasedRange(lines);
+    if (range) {
+        lines.splice(range.start, range.end - range.start, '', UNRELEASED_PLACEHOLDER, '', ...section);
+    }
+    else {
+        let at = lines.findIndex((line) => line.startsWith('## ') || LINK_REFERENCE.test(line));
+        if (at === -1)
+            at = lines.length;
+        lines.splice(at, 0, ...(at > 0 && lines[at - 1].trim() ? ['', ...section] : section));
+    }
+    if (release.repoUrl) {
+        const target = release.previousTag ? `compare/${release.previousTag}...${tag}` : `releases/tag/${tag}`;
+        const link = `[${tag}]: ${release.repoUrl}/${target}`;
+        const at = lines.findIndex((line) => LINK_REFERENCE.test(line));
+        if (at !== -1)
+            lines.splice(at, 0, link);
+        else
+            lines.push(...(lines[lines.length - 1].trim() ? ['', link] : [link]));
+    }
+    return `${lines.join('\n').replace(/\n+$/, '')}\n`;
 }
 /**
  * Reads the Firebase config the build will use: VITE_FIREBASE_* variables and, if the app
@@ -200,11 +315,13 @@ function banner(appName) {
  * 1. Checks the Firebase CLI and git (release branch, nothing uncommitted, up to date with the remote),
  *    asks for the change type (unless --check or a type is given) and checks the new tag is free.
  * 2. npm ci, checks that the compiled Firebase config belongs to the project, lint and tests (if there is a test script).
- * 3. Creates the release commit (version in package.json and package-lock.json) and the vX.Y.Z tag locally,
- *    before building, so "Acerca de" (About) shows the published version and commit.
- * 4. Builds and publishes Hosting only. If the build or the publish fails, the commit, tag and version are undone.
- * 5. Pushes the release commit and the tag. A tag on GitHub therefore always means "this version is published".
- * --check runs steps 2 and the build only, without touching git or Firebase.
+ * 3. Locally, before building (so "Acerca de" (About) shows the published version and commit): with the
+ *    `changelog` option, adds the version to the changelog and commits it; then creates the release commit
+ *    (version in package.json and package-lock.json) and the vX.Y.Z tag.
+ * 4. Builds and publishes Hosting only. If the build or the publish fails, the commits, tag, version and
+ *    changelog are undone.
+ * 5. Pushes the commits and the tag. A tag on GitHub therefore always means "this version is published".
+ * --check runs steps 2 and the build only (and shows what the changelog would get), without touching git or Firebase.
  */
 export async function deploy(options) {
     const root = options.root instanceof URL ? fileURLToPath(options.root) : (options.root ?? process.cwd());
@@ -222,7 +339,7 @@ export async function deploy(options) {
     function fail(message, code = 1) {
         if (undoRelease) {
             undoRelease();
-            console.error('↩️  Release undone (version, commit and tag): nothing was published or pushed.');
+            console.error('↩️  Release undone (commits, tag, version and changelog): nothing was published or pushed.');
         }
         console.error(`❌ ${message}`);
         process.exit(code);
@@ -261,6 +378,37 @@ export async function deploy(options) {
         console.log(`\n📦 Current version: ${currentVersion}`);
         console.log(`📦 New version:     ${newVersion} (${versionType.toUpperCase()})`);
     }
+    // Shown before the long steps so the entries can be checked (and the deploy stopped) in time.
+    let changelog;
+    if (options.changelog) {
+        const path = join(root, options.changelog);
+        const content = existsSync(path) ? readFileSync(path, 'utf8') : null;
+        const previousTag = lastReleaseTag(root);
+        let notes;
+        try {
+            notes = releaseNotes(commitSubjectsSince(root, previousTag));
+        }
+        catch (error) {
+            fail(`Could not read the commits for ${options.changelog}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+        const handWritten = unreleasedNotes(content);
+        const source = handWritten ? 'the entries under "Unreleased"' : `the commits since ${previousTag ?? 'the first one'}`;
+        console.log(`\n📝 ${options.changelog} ${checkOnly ? 'would list' : 'will list'} ${source}:`);
+        for (const line of handWritten ?? (notes.length > 0 ? notes.map((note) => `- ${note}`) : ['- No changes since the previous version.'])) {
+            console.log(`   ${line}`);
+        }
+        if (!checkOnly) {
+            let repoUrl = null;
+            try {
+                repoUrl = githubRepoUrl(git(root, ['remote', 'get-url', remoteOf(root, branch)]));
+            }
+            catch {
+                // No remote address: the version simply has no link.
+            }
+            const date = todayIso();
+            changelog = { file: options.changelog, content: addChangelogVersion(content, { version: newVersion, date, notes, previousTag, repoUrl }) };
+        }
+    }
     console.log('\n📥 Installing dependencies...');
     run('npm', ['ci']);
     let firebaseConfig;
@@ -280,9 +428,9 @@ export async function deploy(options) {
         run('npm', ['test']);
     // The release commit is made before building so "Acerca de" (About) shows the published version and commit.
     if (!checkOnly) {
-        console.log(`\n🏷️  Creating the release commit and tag ${releaseTag(newVersion)}...`);
+        console.log(`\n🏷️  Creating ${changelog ? `the ${changelog.file} commit, ` : ''}the release commit and tag ${releaseTag(newVersion)}...`);
         try {
-            undoRelease = createRelease(root, newVersion);
+            undoRelease = createRelease(root, newVersion, changelog);
         }
         catch (error) {
             fail(`Could not create the release commit: ${error instanceof Error ? error.message : String(error)}`);
@@ -301,7 +449,7 @@ export async function deploy(options) {
     console.log(`📱 URL: https://${projectId}.web.app`);
     console.log(`📦 Version: ${newVersion}`);
     const tag = releaseTag(newVersion);
-    console.log(`\n⬆️  Pushing the release commit and tag ${tag}...`);
+    console.log(`\n⬆️  Pushing the release commits and tag ${tag}...`);
     try {
         pushRelease(root, branch, newVersion);
     }
