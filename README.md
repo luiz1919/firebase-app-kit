@@ -9,7 +9,7 @@ screens, styles or app-specific data.
 | `firebase-app-kit` | `initFirebase(config)`: starts Auth and Firestore with a persistent cache. `firebaseConfigFromEnv(env, fallback)`, `isFirebaseConfigured(config)`. Chunked files in Firestore: `stageChunkedFile`, `stageChunkedFileDelete`, `readChunkedFile`, `joinChunks` |
 | `firebase-app-kit/react` | Hooks: `useAuthUser(auth)` (session), `useEmailLogin(auth)` (login form), `usePopover()` (panel that closes on an outside tap or Escape), `useOnline()` |
 | `firebase-app-kit/utils` | No dependencies (works in Node tests): `authErrorMessage`, `EMAIL_DOMAINS`, `hasEmailDomain`, `canCompleteEmailDomain`, `completeEmailDomain`, `SyncState`, `SYNC_LABELS`, `todayIso`, `formatDate`, `fileTypeOf`, `readFileBytes`, `downloadBlob`, `CHUNK_BYTES`, `chunkCountOf` |
-| `firebase-app-kit/vite` | `firebaseAppKit()` plugin: defines `__APP_VERSION__`, `__APP_COMMIT__`, `__BUILD_TIME__` and `__FIREBASE_CONFIG__` |
+| `firebase-app-kit/vite` | `firebaseAppKit()` plugin: defines `__APP_VERSION__`, `__APP_COMMIT__`, `__BUILD_TIME__` and `__FIREBASE_CONFIG__`, and can generate the offline service worker (`/sw.js`) |
 | `firebase-app-kit/deploy` | `deploy({ appName, projectId })`: the `npm run deploy` flow |
 | `firebase-app-kit/globals` | Types for the constants above |
 | `firebase-app-kit/config/*` | Base `tsconfig` and `oxlint` configs |
@@ -17,7 +17,7 @@ screens, styles or app-specific data.
 ## Install in an app
 
 ```bash
-npm install github:luiz1919/firebase-app-kit#v0.3.1
+npm install github:luiz1919/firebase-app-kit#v0.4.0
 ```
 
 It is installed from GitHub, not from npm. `dist/` is committed so installing
@@ -122,6 +122,29 @@ await batch.commit()                                    // metadata and chunks: 
 const back = await readChunkedFile(ref, { size, chunkCount })   // null if any chunk is missing
 ```
 
+## Service worker
+
+With the `serviceWorker` option, the plugin emits `/sw.js` in the build from
+[`sw/service-worker.js`](sw/service-worker.js), with the app's cache name and static files:
+
+```ts
+firebaseAppKit({
+  serviceWorker: {
+    cacheName: 'my-app-v1',                                     // change it to discard old caches
+    staticFiles: ['/manifest.webmanifest', '/icons/icon-192.png'], // files outside /assets/
+  },
+})
+```
+
+- Install: stores the static files, the main page and every `/assets/` file it references.
+- Navigation: network first; each fresh page refreshes the stored copy (new assets added, old
+  ones deleted). Offline: the last stored page.
+- `/assets/` and `/icons/`: cache first. Lookups ignore `Vary` (some servers send `Vary: Origin`).
+- Other origins (Firebase, Google) are not touched. Activating deletes every other cache of the origin.
+
+The app registers it itself (only in production, e.g. in `main.tsx`) and must not have a
+`public/sw.js`: the build stops if it finds one.
+
 ## Deploy
 
 `npm run deploy [-- --check|--patch|--minor|--major]` runs these steps and
@@ -150,10 +173,10 @@ npm run check    # lint, types, tests and build to dist/
 
 To release a version:
 
-1. Change `version` in `package.json` (for example to 0.4.0) and run `npm run check`.
-2. Commit **including `dist/`** and create the tag: `git tag v0.4.0`.
+1. Change `version` in `package.json` (for example to 0.5.0) and run `npm run check`.
+2. Commit **including `dist/`** and create the tag: `git tag v0.5.0`.
 3. `git push && git push --tags`.
-4. In each app: `npm install github:luiz1919/firebase-app-kit#v0.4.0`.
+4. In each app: `npm install github:luiz1919/firebase-app-kit#v0.5.0`.
    The tag must be in the command: editing it by hand in `package.json` and
    running `npm install` is not enough, because npm does not re-resolve a git
    dependency that is already in `package-lock.json` (it says "up to date" and

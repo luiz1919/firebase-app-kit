@@ -7,6 +7,10 @@
 // - Other origins (Firebase, Google) are left alone: Firestore keeps the data in its own cache.
 /* global CACHE, STATIC_FILES */
 
+// Lookups ignore the Vary header: some servers send "Vary: Origin" and module scripts are requested
+// with an Origin header, so a stored file would not match. Stored URLs never change content anyway.
+const MATCH = { ignoreVary: true }
+
 function assetsIn(html) {
   return [...html.matchAll(/(?:src|href)="(\/assets\/[^"]+)"/g)].map((match) => match[1])
 }
@@ -17,7 +21,7 @@ async function storeShell(response) {
   const assets = assetsIn(await response.clone().text())
   await cache.put('/', response)
   const missing = []
-  for (const asset of assets) if (!(await cache.match(asset))) missing.push(asset)
+  for (const asset of assets) if (!(await cache.match(asset, MATCH))) missing.push(asset)
   await cache.addAll(missing)
   for (const request of await cache.keys()) {
     const { pathname } = new URL(request.url)
@@ -60,14 +64,14 @@ self.addEventListener('fetch', (event) => {
           if (response.ok) event.waitUntil(storeShell(response.clone()))
           return response
         })
-        .catch(async () => (await caches.match('/')) ?? Response.error()),
+        .catch(async () => (await caches.match('/', MATCH)) ?? Response.error()),
     )
     return
   }
 
   if (url.pathname.startsWith('/assets/') || url.pathname.startsWith('/icons/')) {
     event.respondWith(
-      caches.match(request).then(
+      caches.match(request, MATCH).then(
         (cached) =>
           cached ??
           fetch(request).then((response) => {
