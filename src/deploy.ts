@@ -18,6 +18,8 @@ export interface DeployOptions {
   root?: string | URL
   /** Arguments of `npm run deploy -- ...`. Defaults to process.argv.slice(2). */
   args?: readonly string[]
+  /** Branch releases are made from. Defaults to 'main'. */
+  releaseBranch?: string
 }
 
 export interface DeployArgs {
@@ -64,6 +66,97 @@ export function writeVersion(root: string, version: string): () => void {
   return () => {
     for (const { file, content } of originals) writeFileSync(file, content)
   }
+}
+
+/** Runs git in `root` and returns its trimmed output; throws with git's own message if it fails. */
+export function git(root: string, args: readonly string[]): string {
+  const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' })
+  if (result.error) throw new Error('Cannot run git. Check that git is installed.')
+  if (result.status !== 0) throw new Error((result.stderr || result.stdout).trim() || `git ${args.join(' ')} failed`)
+  return result.stdout.trim()
+}
+
+/** Git tag of a version: 1.2.3 -> v1.2.3. */
+export const releaseTag = (version: string): string => `v${version}`
+
+export function tagExists(root: string, tag: string): boolean {
+  try {
+    git(root, ['rev-parse', '-q', '--verify', `refs/tags/${tag}`])
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** Remote of the release branch (usually "origin"). */
+const remoteOf = (root: string, branch: string) => git(root, ['config', '--get', `branch.${branch}.remote`])
+
+/**
+ * Checks that a release can be made: on `branch`, nothing uncommitted, and up to date with its
+ * remote branch. It fetches the remote (branches and tags), which also checks access to GitHub.
+ * Returns the problem, or null if everything is ready.
+ */
+export function gitReleaseProblem(root: string, branch: string): string | null {
+  try {
+    git(root, ['rev-parse', '--is-inside-work-tree'])
+  } catch {
+    return 'This folder is not a git repository.'
+  }
+  const current = git(root, ['branch', '--show-current'])
+  if (current !== branch) return `Releases are made from the "${branch}" branch, and you are on "${current || 'a detached HEAD'}".`
+  if (git(root, ['status', '--porcelain'])) return 'There are uncommitted changes: commit (or discard) them before deploying.'
+  let remote: string
+  let upstream: string
+  try {
+    remote = remoteOf(root, branch)
+    upstream = git(root, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'])
+  } catch {
+    return `The "${branch}" branch is not linked to a remote branch: run git push -u origin ${branch} once.`
+  }
+  try {
+    git(root, ['fetch', '--quiet', '--tags', remote])
+  } catch (error) {
+    return `Cannot reach the git remote "${remote}": ${error instanceof Error ? error.message : String(error)}`
+  }
+  const behind = Number(git(root, ['rev-list', '--count', `HEAD..${upstream}`]))
+  if (behind > 0) return `"${branch}" is ${behind} commit(s) behind ${upstream}: run git pull first.`
+  return null
+}
+
+/**
+ * Writes the version, commits package.json and package-lock.json as "chore(release): vX.Y.Z" and
+ * creates the annotated tag, all locally. Returns how to undo it (if the build or the deploy fails).
+ */
+export function createRelease(root: string, version: string): () => void {
+  const tag = releaseTag(version)
+  const files = ['package.json', 'package-lock.json'].filter((name) => existsSync(join(root, name)))
+  const undoSteps: (() => void)[] = [writeVersion(root, version)]
+  const undo = () => {
+    for (const step of [...undoSteps].reverse()) {
+      try {
+        step()
+      } catch (error) {
+        console.error(`⚠️  Could not undo a release step: ${error instanceof Error ? error.message : String(error)}`)
+      }
+    }
+  }
+  try {
+    git(root, ['add', '--', ...files])
+    undoSteps.push(() => git(root, ['reset', '-q', '--', ...files]))
+    git(root, ['commit', '-q', '-m', `chore(release): ${tag}`])
+    undoSteps.push(() => git(root, ['reset', '-q', '--soft', 'HEAD~1']))
+    git(root, ['tag', '-a', tag, '-m', tag])
+    undoSteps.push(() => git(root, ['tag', '-d', tag]))
+  } catch (error) {
+    undo()
+    throw error
+  }
+  return undo
+}
+
+/** Pushes the release commit and its tag together (both or neither). */
+export function pushRelease(root: string, branch: string, version: string): void {
+  git(root, ['push', '--quiet', '--atomic', remoteOf(root, branch), `HEAD:refs/heads/${branch}`, `refs/tags/${releaseTag(version)}`])
 }
 
 /**
@@ -120,11 +213,15 @@ function banner(appName: string) {
 }
 
 /**
- * Validates and publishes the app to Firebase Hosting. Stops at the first step that fails:
- * 1. Checks the Firebase CLI and asks for the change type (unless --check or a type is given).
+ * Releases and publishes the app to Firebase Hosting. Stops at the first step that fails:
+ * 1. Checks the Firebase CLI and git (release branch, nothing uncommitted, up to date with the remote),
+ *    asks for the change type (unless --check or a type is given) and checks the new tag is free.
  * 2. npm ci, checks that the compiled Firebase config belongs to the project, lint and tests (if there is a test script).
- * 3. Bumps the version before building, so "Acerca de" (About) shows the published one.
- * 4. Builds and publishes Hosting only. If the build or the publish fails, the version is left as it was.
+ * 3. Creates the release commit (version in package.json and package-lock.json) and the vX.Y.Z tag locally,
+ *    before building, so "Acerca de" (About) shows the published version and commit.
+ * 4. Builds and publishes Hosting only. If the build or the publish fails, the commit, tag and version are undone.
+ * 5. Pushes the release commit and the tag. A tag on GitHub therefore always means "this version is published".
+ * --check runs steps 2 and the build only, without touching git or Firebase.
  */
 export async function deploy(options: DeployOptions): Promise<void> {
   const root = options.root instanceof URL ? fileURLToPath(options.root) : (options.root ?? process.cwd())
@@ -135,15 +232,16 @@ export async function deploy(options: DeployOptions): Promise<void> {
   }
   const { checkOnly, versionType: forcedType } = parsed
   const { projectId } = options
+  const branch = options.releaseBranch ?? 'main'
   process.chdir(root)
 
-  // If something fails after bumping the version, it is restored: nothing was published.
-  let restoreVersion: (() => void) | null = null
+  // If something fails after creating the release, it is undone: nothing was published or pushed.
+  let undoRelease: (() => void) | null = null
 
   function fail(message: string, code = 1): never {
-    if (restoreVersion) {
-      restoreVersion()
-      console.error('↩️  Version restored: nothing was published.')
+    if (undoRelease) {
+      undoRelease()
+      console.error('↩️  Release undone (version, commit and tag): nothing was published or pushed.')
     }
     console.error(`❌ ${message}`)
     process.exit(code)
@@ -170,6 +268,10 @@ export async function deploy(options: DeployOptions): Promise<void> {
     console.log('\n🔐 Checking Firebase CLI...')
     run('firebase', ['--version'])
 
+    console.log(`\n🌿 Checking git (branch ${branch}, uncommitted changes, remote)...`)
+    const gitProblem = gitReleaseProblem(root, branch)
+    if (gitProblem) fail(gitProblem)
+
     const currentVersion = readPackage().version
     if (!isSemver(currentVersion)) fail(`The package.json version ("${currentVersion}") is not in MAJOR.MINOR.PATCH format.`)
     // Asked at the start so there is no need to wait for the build.
@@ -178,6 +280,9 @@ export async function deploy(options: DeployOptions): Promise<void> {
     }
     const versionType = forcedType ?? (await askVersionType(currentVersion))
     newVersion = incrementVersion(currentVersion, versionType)
+    if (tagExists(root, releaseTag(newVersion))) {
+      fail(`The tag ${releaseTag(newVersion)} already exists: the package.json version (${currentVersion}) is behind the latest release.`)
+    }
     console.log(`\n📦 Current version: ${currentVersion}`)
     console.log(`📦 New version:     ${newVersion} (${versionType.toUpperCase()})`)
   }
@@ -199,8 +304,15 @@ export async function deploy(options: DeployOptions): Promise<void> {
   run('npm', ['run', 'lint'])
   if (hasTests) run('npm', ['test'])
 
-  // The version is bumped before building so "Acerca de" (About) shows the published one.
-  if (!checkOnly) restoreVersion = writeVersion(root, newVersion)
+  // The release commit is made before building so "Acerca de" (About) shows the published version and commit.
+  if (!checkOnly) {
+    console.log(`\n🏷️  Creating the release commit and tag ${releaseTag(newVersion)}...`)
+    try {
+      undoRelease = createRelease(root, newVersion)
+    } catch (error) {
+      fail(`Could not create the release commit: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
 
   console.log('\n🔨 Building...')
   run('npm', ['run', 'build'])
@@ -212,9 +324,20 @@ export async function deploy(options: DeployOptions): Promise<void> {
 
   console.log('\n🚀 Deploying to Firebase...')
   run('firebase', ['deploy', '--config', 'firebase.json', '--only', 'hosting', '--project', projectId, '--non-interactive'])
-  restoreVersion = null
+  undoRelease = null
   console.log('\n✨ Published successfully!')
   console.log(`📱 URL: https://${projectId}.web.app`)
   console.log(`📦 Version: ${newVersion}`)
-  console.log('📝 Commit package.json and package-lock.json to keep the new version.\n')
+
+  const tag = releaseTag(newVersion)
+  console.log(`\n⬆️  Pushing the release commit and tag ${tag}...`)
+  try {
+    pushRelease(root, branch, newVersion)
+  } catch (error) {
+    // Already published: the release stays, it only needs to be pushed.
+    console.error(`\n⚠️  Published, but the push failed: ${error instanceof Error ? error.message : String(error)}`)
+    console.error(`   Push it when you can: git push --atomic ${remoteOf(root, branch)} ${branch} ${tag}\n`)
+    process.exit(1)
+  }
+  console.log(`✅ Release ${tag} pushed.\n`)
 }

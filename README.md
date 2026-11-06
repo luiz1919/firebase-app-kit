@@ -147,22 +147,26 @@ The app registers it itself (only in production, e.g. in `main.tsx`) and must no
 
 ## Deploy
 
-`npm run deploy [-- --check|--patch|--minor|--major]` runs these steps and
-stops at the first one that fails:
+`npm run deploy [-- --check|--patch|--minor|--major]` releases and publishes the app in one
+go: the version in Firebase, in `package.json` and the git tag always match. Commit your own
+changes first; the script only makes the release commit. It stops at the first step that fails:
 
-1. Checks the Firebase CLI and asks for the change type (or uses the one given).
-   Without an interactive terminal the type must be passed.
-2. `npm ci`.
-3. Checks that the Firebase config about to be compiled is complete and belongs
-   to the given `projectId`.
-4. `npm run lint` and, if the app has a `test` script, `npm test`.
-5. Writes the new version to `package.json` and `package-lock.json` before
-   building, so the "Acerca de" (About) panel shows the published version.
-6. `npm run build`, then publishes **Hosting only** to the given project.
+1. Checks the Firebase CLI and git: on the release branch (`main`, or `releaseBranch`), nothing
+   uncommitted, and not behind the remote (it fetches branches and tags, which also checks access).
+2. Asks for the change type (or uses the one given; without an interactive terminal it must be
+   passed) and checks that the new `vX.Y.Z` tag does not exist yet.
+3. `npm ci`, checks that the Firebase config about to be compiled is complete and belongs to the
+   given `projectId`, `npm run lint` and, if the app has a `test` script, `npm test`.
+4. Locally: writes the version to `package.json` and `package-lock.json`, commits them as
+   `chore(release): vX.Y.Z` and creates the annotated tag `vX.Y.Z`. This happens before building,
+   so "Acerca de" (About) shows the published version and commit.
+5. `npm run build` and publishes **Hosting only** to the given project. If either fails, the
+   commit, the tag and the version are undone: nothing published, nothing pushed.
+6. Pushes the release commit and the tag together (`git push --atomic`). If the push fails, the
+   app is already published: the script prints the command to push it later.
 
-If the build or the publish fails, it restores `package.json` and
-`package-lock.json`. It does not create commits or tags. `--check` runs steps 2
-to 4 and the build, without touching the version or publishing.
+So a `vX.Y.Z` tag on GitHub always means "this version is published". `--check` runs step 3 and
+the build only, without touching git, the version or Firebase.
 
 ## Developing the kit
 
