@@ -1,4 +1,4 @@
-// File attachments (PDFs and photos). No dependencies.
+// Files: attachments (PDFs and photos) and handing generated files to the user. No dependencies.
 
 /**
  * Size of each chunk a file is stored in, in Firestore. A document holds up to 1 MiB: each chunk
@@ -52,4 +52,45 @@ export function downloadBlob(blob: Blob, name: string): void {
   link.click()
   link.remove()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+/** Phone or tablet (touch screen as the main pointer). */
+export const isTouchDevice = (): boolean => window.matchMedia('(pointer: coarse)').matches
+
+/**
+ * Safari only opens the Share sheet right after a tap. If there was a wait first (reading chunks,
+ * preparing a backup), it throws NotAllowedError: the app must ask for another tap (e.g. a
+ * "Ver el archivo" button) and call the function again from it.
+ */
+export const needsNewTap = (error: unknown): boolean => error instanceof DOMException && error.name === 'NotAllowedError'
+
+/**
+ * On mobile, opens the Share sheet (Save to Files, AirDrop...); on desktop, downloads the file.
+ * Closing the Share sheet is not an error. Call it straight from a tap (see `needsNewTap`).
+ */
+export async function shareOrDownload(file: File): Promise<void> {
+  if (isTouchDevice() && navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: file.name })
+    } catch (shareError) {
+      if (shareError instanceof DOMException && shareError.name === 'AbortError') return
+      throw shareError
+    }
+    return
+  }
+  downloadBlob(file, file.name)
+}
+
+/**
+ * Shows a file generated in the browser (a PDF, a photo): on mobile, the Share sheet, which
+ * previews it; on desktop, a new tab, or a download if the browser blocks the tab.
+ */
+export async function openFile(file: File): Promise<void> {
+  if (isTouchDevice()) {
+    await shareOrDownload(file)
+    return
+  }
+  const url = URL.createObjectURL(file)
+  if (!window.open(url, '_blank')) downloadBlob(file, file.name)
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }

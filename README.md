@@ -8,7 +8,7 @@ screens, styles or app-specific data.
 |--------|--------------|
 | `firebase-app-kit` | `initFirebase(config)`: starts Auth and Firestore with a persistent cache. `firebaseConfigFromEnv(env, fallback)`, `isFirebaseConfigured(config)`. Chunked files in Firestore: `stageChunkedFile`, `stageChunkedFileDelete`, `readChunkedFile`, `joinChunks` |
 | `firebase-app-kit/react` | Hooks: `useAuthUser(auth)` (session), `useEmailLogin(auth)` (login form), `usePopover()` (panel that closes on an outside tap or Escape), `useOnline()` |
-| `firebase-app-kit/utils` | No dependencies (works in Node tests): `authErrorMessage`, `EMAIL_DOMAINS`, `hasEmailDomain`, `canCompleteEmailDomain`, `completeEmailDomain`, `SyncState`, `SYNC_LABELS`, `todayIso`, `formatDate`, `fileTypeOf`, `readFileBytes`, `downloadBlob`, `CHUNK_BYTES`, `chunkCountOf` |
+| `firebase-app-kit/utils` | No dependencies (works in Node tests): `authErrorMessage`, `EMAIL_DOMAINS`, `hasEmailDomain`, `canCompleteEmailDomain`, `completeEmailDomain`, `SyncState`, `SYNC_LABELS`, `todayIso`, `formatDate`, `fileTimestamp`, `fileTypeOf`, `readFileBytes`, `downloadBlob`, `CHUNK_BYTES`, `chunkCountOf`. Generated files: `shareOrDownload`, `openFile`, `needsNewTap`, `isTouchDevice` (browser only when called). Text PDF reports: `PdfDocument`, `wrapPdfText`, `pdfTextWidth` |
 | `firebase-app-kit/vite` | `firebaseAppKit()` plugin: defines `__APP_VERSION__`, `__APP_COMMIT__`, `__BUILD_TIME__` and `__FIREBASE_CONFIG__`, and can generate the offline service worker (`/sw.js`) |
 | `firebase-app-kit/deploy` | `deploy({ appName, projectId })`: the `npm run deploy` flow |
 | `firebase-app-kit/globals` | Types for the constants above |
@@ -17,7 +17,7 @@ screens, styles or app-specific data.
 ## Install in an app
 
 ```bash
-npm install github:luiz1919/firebase-app-kit#v0.4.0
+npm install github:luiz1919/firebase-app-kit#v0.6.0
 ```
 
 It is installed from GitHub, not from npm. `dist/` is committed so installing
@@ -120,6 +120,38 @@ const batch = writeBatch(db)
 stageChunkedFile(batch, ref, bytes, { name: file.name, type, size: bytes.length, chunkCount: chunkCountOf(bytes.length) })
 await batch.commit()                                    // metadata and chunks: all or nothing
 const back = await readChunkedFile(ref, { size, chunkCount })   // null if any chunk is missing
+```
+
+Handing a generated file to the user (a report, a backup). On iOS, Safari only opens the
+Share sheet right after a tap: if there was an `await` before (reading chunks...), it throws
+`NotAllowedError` and the app shows a button so the user can tap again:
+
+```ts
+import { fileTimestamp, needsNewTap, openFile } from 'firebase-app-kit/utils'
+
+const file = new File([bytes], `informe-${fileTimestamp()}.pdf`, { type: 'application/pdf' }) // informe-2026-11-06_1030.pdf
+try {
+  await openFile(file)          // mobile: Share sheet with preview; desktop: new tab (download if blocked)
+} catch (error) {
+  if (needsNewTap(error)) setReadyFile(file)   // <button onClick={() => openFile(readyFile)}>Ver el archivo</button>
+}
+// shareOrDownload(file): mobile Share sheet (Save to Files); desktop download.
+```
+
+Text-only PDF reports (A4, standard Helvetica, WinAnsi: accents, ñ and €; no dependencies, no
+embedded fonts or images). A cursor moves down the page; pages break on their own:
+
+```ts
+import { PdfDocument, wrapPdfText } from 'firebase-app-kit/utils'
+
+const pdf = new PdfDocument()                         // margin 50, footerSpace 40 (points)
+pdf.line('Informe 2026', 20, 20, { bold: true })      // text, size, gap above, style
+pdf.right('120,00 €', pdf.rightEdge, 10)              // right-aligned, on the last line's height
+pdf.rule(8)                                           // light gray line across the page
+for (const text of wrapPdfText(longText, 10, pdf.contentWidth)) pdf.line(text, 10, 14)
+pdf.ensure(blockHeight)                               // new page if the block does not fit
+pdf.footer('Mi App · Informe 2026')                   // on every page, with "Página N de M"
+const bytes = pdf.toBytes({ title: 'Informe 2026', producer: 'Mi App' })
 ```
 
 ## Service worker

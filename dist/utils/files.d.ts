@@ -19,3 +19,21 @@ export declare function readFileBytes(file: Blob & {
 }, timeoutMs?: number): Promise<Uint8Array<ArrayBuffer>>;
 /** Downloads a file generated in the browser. */
 export declare function downloadBlob(blob: Blob, name: string): void;
+/** Phone or tablet (touch screen as the main pointer). */
+export declare const isTouchDevice: () => boolean;
+/**
+ * Safari only opens the Share sheet right after a tap. If there was a wait first (reading chunks,
+ * preparing a backup), it throws NotAllowedError: the app must ask for another tap (e.g. a
+ * "Ver el archivo" button) and call the function again from it.
+ */
+export declare const needsNewTap: (error: unknown) => boolean;
+/**
+ * On mobile, opens the Share sheet (Save to Files, AirDrop...); on desktop, downloads the file.
+ * Closing the Share sheet is not an error. Call it straight from a tap (see `needsNewTap`).
+ */
+export declare function shareOrDownload(file: File): Promise<void>;
+/**
+ * Shows a file generated in the browser (a PDF, a photo): on mobile, the Share sheet, which
+ * previews it; on desktop, a new tab, or a download if the browser blocks the tab.
+ */
+export declare function openFile(file: File): Promise<void>;

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
-  CHUNK_BYTES, SYNC_LABELS, authErrorMessage, canCompleteEmailDomain, chunkCountOf, completeEmailDomain, fileTypeOf, formatDate,
-  hasEmailDomain, readFileBytes, todayIso,
+  CHUNK_BYTES, SYNC_LABELS, authErrorMessage, canCompleteEmailDomain, chunkCountOf, completeEmailDomain, fileTimestamp, fileTypeOf,
+  formatDate, hasEmailDomain, needsNewTap, readFileBytes, todayIso,
 } from '../src/utils/index.ts'
 
 test('hasEmailDomain recognizes an email with a domain', () => {
@@ -43,6 +43,19 @@ test('formatDate does not shift the day and todayIso uses the local date', () =>
   assert.equal(formatDate('2026-01-01'), '1 ene 2026')
   const now = new Date()
   assert.equal(todayIso(), `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`)
+})
+
+test('fileTimestamp gives the local date and time for file names', () => {
+  assert.equal(fileTimestamp(new Date(2026, 0, 5, 9, 7)), '2026-01-05_0907')
+  assert.equal(fileTimestamp(new Date(2026, 10, 6, 23, 59)), '2026-11-06_2359')
+  assert.match(fileTimestamp(), /^\d{4}-\d{2}-\d{2}_\d{4}$/)
+})
+
+test('needsNewTap only recognizes the Safari tap restriction', () => {
+  assert.equal(needsNewTap(new DOMException('x', 'NotAllowedError')), true)
+  assert.equal(needsNewTap(new DOMException('x', 'AbortError')), false)
+  assert.equal(needsNewTap(new Error('NotAllowedError')), false)
+  assert.equal(needsNewTap(null), false)
 })
 
 test('there is a label for every sync state', () => {
