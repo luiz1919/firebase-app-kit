@@ -1,14 +1,15 @@
 # firebase-app-kit
 
 Shared building blocks for the Vite + React + Firebase apps in `labs/`
-(CommunityAssistant and TripPlanner). It only contains infrastructure: no
-screens, styles or app-specific data.
+(CommunityAssistant, TripPlanner and Labia). It contains infrastructure and the few UI pieces
+every app repeats (login form, "Acerca de" (About), sync status); no screens or app-specific data.
 
 | Import | What it does |
 |--------|--------------|
 | `firebase-app-kit` | `initFirebase(config)`: starts Auth and Firestore with a persistent cache. `firebaseConfigFromEnv(env, fallback)`, `isFirebaseConfigured(config)`. Chunked files in Firestore: `stageChunkedFile`, `stageChunkedFileDelete`, `readChunkedFile`, `joinChunks` |
 | `firebase-app-kit/react` | Hooks: `useAuthUser(auth)` (session), `useEmailLogin(auth)` (login form), `usePopover()` (panel that closes on an outside tap or Escape), `useOnline()` |
-| `firebase-app-kit/utils` | No dependencies (works in Node tests): `authErrorMessage`, `EMAIL_DOMAINS`, `hasEmailDomain`, `canCompleteEmailDomain`, `completeEmailDomain`, `SyncState`, `SYNC_LABELS`, `todayIso`, `formatDate`, `fileTimestamp`, `fileTypeOf`, `readFileBytes`, `downloadBlob`, `CHUNK_BYTES`, `chunkCountOf`. Generated files: `shareOrDownload`, `openFile`, `needsNewTap`, `isTouchDevice` (browser only when called). Text PDF reports: `PdfDocument`, `wrapPdfText`, `pdfTextWidth` |
+| `firebase-app-kit/ui` | React components: `LoginForm`, `AboutButton`, `SyncStatus`. Styles in `firebase-app-kit/ui.css`, themed with `--kit-*` CSS variables (see [UI components](#ui-components)) |
+| `firebase-app-kit/utils` | No dependencies (works in Node tests): `authErrorMessage`, `EMAIL_DOMAINS`, `hasEmailDomain`, `canCompleteEmailDomain`, `completeEmailDomain`, `SyncState`, `SYNC_LABELS`, `SYNC_DETAILS`, `syncDetail`, `BuildInfo`, `formatBuildTime`, `todayIso`, `formatDate`, `fileTimestamp`, `fileTypeOf`, `readFileBytes`, `downloadBlob`, `CHUNK_BYTES`, `chunkCountOf`. Generated files: `shareOrDownload`, `openFile`, `needsNewTap`, `isTouchDevice` (browser only when called). Text PDF reports: `PdfDocument`, `wrapPdfText`, `pdfTextWidth` |
 | `firebase-app-kit/vite` | `firebaseAppKit()` plugin: defines `__APP_VERSION__`, `__APP_COMMIT__`, `__BUILD_TIME__` and `__FIREBASE_CONFIG__`, and can generate the offline service worker (`/sw.js`) |
 | `firebase-app-kit/deploy` | `deploy({ appName, projectId, changelog? })`: the `npm run deploy` flow, optionally updating a changelog |
 | `firebase-app-kit/globals` | Types for the constants above |
@@ -17,7 +18,7 @@ screens, styles or app-specific data.
 ## Install in an app
 
 ```bash
-npm install github:luiz1919/firebase-app-kit#v0.8.0
+npm install github:luiz1919/firebase-app-kit#v0.9.0
 ```
 
 It is installed from GitHub, not from npm. `dist/` is committed so installing
@@ -28,7 +29,7 @@ needs a token with read access to this repo).
 The app provides `react`, `firebase`, `vite` and `typescript`: the kit does not
 install its own copy (two copies of Firebase do not share the session or the cache).
 
-User-facing text (login errors, sync labels, dates) is in Spanish, like the
+User-facing text (login form and errors, sync labels, About, dates) is in Spanish, like the
 apps' UI.
 
 ## Usage
@@ -83,6 +84,64 @@ await deploy({ appName: 'My App', projectId: 'my-project', root: new URL('..', i
   "extends": ["./node_modules/firebase-app-kit/config/oxlintrc.json"]
 }
 ```
+
+## UI components
+
+`firebase-app-kit/ui` has the pieces that were repeated in every app. They only need React (no
+icon library: the icons are inlined from Lucide). Import the styles once, **before** the app's own
+CSS so the app can still override any rule:
+
+```tsx
+// main.tsx
+import 'firebase-app-kit/ui.css'
+import './index.css'
+```
+
+```tsx
+import { AboutButton, LoginForm, SyncStatus } from 'firebase-app-kit/ui'
+
+// The app passes its build constants: Vite's define is not reliable inside pre-bundled dependencies.
+const build = { version: __APP_VERSION__, commit: __APP_COMMIT__, buildTime: __BUILD_TIME__ }
+
+<AboutButton appName="Labia" build={build} />
+// optional developer={{ name: 'luiz1919 en GitHub', url: 'https://github.com/luiz1919' }} (the default)
+
+<LoginForm auth={auth} sessionError={sessionError} />
+// The form only: email with the domain chips, password with show/hide, errors, "Entrar".
+// The app owns the page layout and heading around it. With auth null it says Firebase is not configured.
+
+<SyncStatus state={syncState} error={error} details={{ offline: 'Text for this app' }} onDismissError={clearError} />
+// details: the app's explanation per state (missing ones use SYNC_DETAILS). In the error state the
+// panel shows `error`, or else details.error. onDismissError (optional) adds an "Entendido" button.
+```
+
+- `AboutButton`: underlined "Acerca de" link that opens a modal `<dialog>` with the version, commit,
+  build date ("Versión de desarrollo" in dev) and developer link. Escape, the close button or a tap
+  on the backdrop close it.
+- `SyncStatus`: cloud icon button; its panel is positioned against the component's own wrapper
+  (`.kit-sync`, `position: relative`), right-aligned with the button. To anchor it to a wider
+  container instead, give that container `position: relative` and set `.kit-sync { position: static }`.
+
+All classes start with `kit-`. Theme them with these optional variables (fallbacks: TripPlanner's colors):
+
+| Variable | Used for |
+|----------|----------|
+| `--kit-accent` | Links, chips, primary button, focus ring |
+| `--kit-accent-hover` | Primary button on hover |
+| `--kit-accent-contrast` | Text on the primary button |
+| `--kit-accent-soft` | Hover background of chips and icon buttons |
+| `--kit-text` | Text of the dialog and the sync panel (default: inherited) |
+| `--kit-muted` | Secondary text, icon buttons |
+| `--kit-border`, `--kit-input-border` | Borders; text field borders |
+| `--kit-surface` | Background of fields, chips, dialog and panel |
+| `--kit-danger`, `--kit-danger-soft` | Error text/border and background |
+| `--kit-radius` | Corner radius of fields, buttons and panels |
+| `--kit-sync-synced`, `--kit-sync-syncing`, `--kit-sync-offline`, `--kit-sync-error` | Sync icon color per state |
+
+For example `:root { --kit-accent: var(--accent); --kit-surface: var(--surface); }`: variables
+pointing at the app's own ones follow its dark mode too.
+
+The hooks below remain available for apps that need a different markup.
 
 Login (the hooks only hold the logic; each app owns its HTML and styles):
 

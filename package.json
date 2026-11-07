@@ -1,12 +1,13 @@
 {
   "name": "firebase-app-kit",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
-  "description": "Piezas comunes de las apps Vite + React + Firebase (CommunityAssistant, TripPlanner)",
+  "description": "Shared building blocks of the Vite + React + Firebase apps (CommunityAssistant, TripPlanner, Labia)",
   "license": "MIT",
   "type": "module",
   "files": [
     "dist",
+    "styles",
     "config",
     "sw",
     "globals.d.ts"
@@ -24,6 +25,11 @@
       "types": "./dist/react/index.d.ts",
       "default": "./dist/react/index.js"
     },
+    "./ui": {
+      "types": "./dist/ui/index.d.ts",
+      "default": "./dist/ui/index.js"
+    },
+    "./ui.css": "./styles/ui.css",
     "./vite": {
       "types": "./dist/vite.d.ts",
       "default": "./dist/vite.js"

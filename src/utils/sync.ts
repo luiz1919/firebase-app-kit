@@ -10,3 +10,20 @@ export const SYNC_LABELS: Readonly<Record<SyncState, string>> = {
   offline: 'Sin conexión',
   error: 'Error de sincronización',
 }
+
+/** Default explanation of each state, shown in the sync panel. Apps can replace any of them. */
+export const SYNC_DETAILS: Readonly<Record<SyncState, string>> = {
+  synced: 'Todos los cambios están guardados en la nube.',
+  syncing: 'Conectando o esperando la confirmación de la nube.',
+  offline: 'Sin conexión: estás viendo los datos guardados en este dispositivo.',
+  error: 'No se han podido sincronizar los datos.',
+}
+
+/**
+ * Text of the sync panel: the app's detail for the state, or the default one. In the error state,
+ * the error message wins when there is one. Empty details count as missing.
+ */
+export function syncDetail(state: SyncState, details?: Partial<Record<SyncState, string>>, error?: string | null): string {
+  const detail = details?.[state] || SYNC_DETAILS[state]
+  return state === 'error' ? error || detail : detail
+}

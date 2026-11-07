@@ -4,6 +4,7 @@
     "lib": ["ES2023", "DOM"],
     "module": "nodenext",
     "types": ["node"],
+    "jsx": "react-jsx",
     "strict": true,
     "skipLibCheck": true,
     "verbatimModuleSyntax": true,

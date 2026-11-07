@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
-  CHUNK_BYTES, SYNC_LABELS, authErrorMessage, canCompleteEmailDomain, chunkCountOf, completeEmailDomain, fileTimestamp, fileTypeOf,
-  formatDate, hasEmailDomain, needsNewTap, readFileBytes, todayIso,
+  CHUNK_BYTES, SYNC_DETAILS, SYNC_LABELS, authErrorMessage, canCompleteEmailDomain, chunkCountOf, completeEmailDomain, fileTimestamp, fileTypeOf,
+  formatBuildTime, formatDate, hasEmailDomain, needsNewTap, readFileBytes, syncDetail, todayIso,
 } from '../src/utils/index.ts'
 
 test('hasEmailDomain recognizes an email with a domain', () => {
@@ -82,4 +82,21 @@ test('readFileBytes reads the file and fails with its name if it takes too long'
   assert.deepEqual(await readFileBytes(new File(['abc'], 'a.txt')), new TextEncoder().encode('abc'))
   const stuck = { name: 'stuck.pdf', arrayBuffer: () => new Promise<ArrayBuffer>(() => {}) } as unknown as File
   await assert.rejects(readFileBytes(stuck, 20), /«stuck\.pdf» \(TimeoutError\)/)
+})
+
+test('formatBuildTime shows the build date, or that it is a development version', () => {
+  assert.equal(formatBuildTime(''), 'Versión de desarrollo')
+  assert.match(formatBuildTime('2026-11-08T10:30:00.000Z'), /2026/)
+  assert.equal(formatBuildTime('not a date'), 'not a date')
+})
+
+test('syncDetail uses the app details, the defaults and the error message', () => {
+  assert.equal(syncDetail('synced'), SYNC_DETAILS.synced)
+  assert.equal(syncDetail('offline', { offline: 'Guardar está bloqueado.' }), 'Guardar está bloqueado.')
+  assert.equal(syncDetail('syncing', { offline: 'x' }), SYNC_DETAILS.syncing)
+  assert.equal(syncDetail('error', { error: 'Detalle de la app.' }, 'Permiso denegado.'), 'Permiso denegado.')
+  assert.equal(syncDetail('error', { error: 'Detalle de la app.' }, null), 'Detalle de la app.')
+  assert.equal(syncDetail('error', { error: '' }, ''), SYNC_DETAILS.error)
+  assert.equal(syncDetail('synced', undefined, 'ignored outside the error state'), SYNC_DETAILS.synced)
+  for (const state of ['synced', 'syncing', 'offline', 'error'] as const) assert.ok(SYNC_DETAILS[state])
 })
