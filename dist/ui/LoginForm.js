@@ -1,8 +1,8 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useId, useState } from 'react';
-import { useEmailLogin } from "../react/auth.js";
-import { EMAIL_DOMAINS } from "../utils/auth.js";
-import { EyeIcon, EyeOffIcon, LogInIcon } from "./icons.js";
+import { useEmailLogin } from '../react/auth.js';
+import { EMAIL_DOMAINS } from '../utils/auth.js';
+import { EyeIcon, EyeOffIcon, LogInIcon } from './icons.js';
 /**
  * Email/password login form: email with the domain chips, password with a show/hide button,
  * errors and the "Entrar" (Sign in) button. The app owns the page layout and heading around it.

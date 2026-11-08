@@ -24,27 +24,100 @@ export function serviceWorkerSource({ cacheName, staticFiles }, buildAssets = []
     ].join('\n');
 }
 const CONFIG_FIELDS = new Set(['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId', 'measurementId']);
+const ESCAPES = { n: '\n', r: '\r', t: '\t', '0': '\0' };
+/**
+ * Splits JavaScript/TypeScript source into words, string literals and punctuation, skipping
+ * whitespace and comments. Enough for the console snippet; template strings with ${} are 'other'.
+ */
+function tokenize(source) {
+    const tokens = [];
+    let index = 0;
+    while (index < source.length) {
+        const char = source[index];
+        if (/\s/.test(char)) {
+            index++;
+        }
+        else if (char === '/' && source[index + 1] === '/') {
+            const end = source.indexOf('\n', index);
+            index = end < 0 ? source.length : end;
+        }
+        else if (char === '/' && source[index + 1] === '*') {
+            const end = source.indexOf('*/', index + 2);
+            index = end < 0 ? source.length : end + 2;
+        }
+        else if (char === '"' || char === "'" || char === '`') {
+            let value = '';
+            let plain = true;
+            let cursor = index + 1;
+            while (cursor < source.length && source[cursor] !== char) {
+                if (source[cursor] === '\\') {
+                    const next = source[cursor + 1] ?? '';
+                    value += ESCAPES[next] ?? next;
+                    cursor += 2;
+                    continue;
+                }
+                if (char === '`' && source[cursor] === '$' && source[cursor + 1] === '{')
+                    plain = false;
+                value += source[cursor];
+                cursor++;
+            }
+            tokens.push({ type: plain ? 'string' : 'other', value });
+            index = cursor + 1;
+        }
+        else if (/[A-Za-z_$]/.test(char)) {
+            let cursor = index + 1;
+            while (cursor < source.length && /[\w$]/.test(source[cursor]))
+                cursor++;
+            tokens.push({ type: 'word', value: source.slice(index, cursor) });
+            index = cursor;
+        }
+        else {
+            tokens.push({ type: 'punct', value: char });
+            index++;
+        }
+    }
+    return tokens;
+}
+/**
+ * The string properties of the `firebaseConfig` object literal (`const firebaseConfig = { ... }`,
+ * with or without a type annotation), read without running or compiling the file. Other values
+ * (numbers, variables, expressions) are ignored.
+ */
+export function parseFirebaseConfigSource(source) {
+    const tokens = tokenize(source);
+    const declaration = tokens.findIndex((token, index) => token.type === 'word' && token.value === 'firebaseConfig' && ['const', 'let', 'var'].includes(tokens[index - 1]?.value ?? ''));
+    if (declaration < 0)
+        return {};
+    let index = declaration + 1;
+    while (index < tokens.length && tokens[index].value !== '=' && tokens[index].value !== ';')
+        index++;
+    if (tokens[index]?.value !== '=' || tokens[index + 1]?.value !== '{')
+        return {};
+    const config = {};
+    let depth = 1;
+    for (index += 2; index < tokens.length && depth > 0; index++) {
+        const token = tokens[index];
+        if (token.type === 'punct' && '{[('.includes(token.value))
+            depth++;
+        else if (token.type === 'punct' && '}])'.includes(token.value))
+            depth--;
+        else if (depth === 1 && (token.type === 'word' || token.type === 'string') && tokens[index + 1]?.value === ':') {
+            const value = tokens[index + 2];
+            const after = tokens[index + 3]?.value;
+            // Only a plain string: "a" + b or a template with ${} are not read.
+            if (value?.type === 'string' && (after === ',' || after === '}'))
+                config[token.value] = value.value;
+            index++;
+        }
+    }
+    return config;
+}
 /** Reads the firebaseConfig object from a file copied from the Firebase console. Returns {} if it does not exist. */
 export async function readFirebaseConfigFile(path) {
     if (!existsSync(path))
         return {};
-    // TypeScript is only loaded if the app uses the file: it reads the object without running the code.
-    const { default: ts } = await import('typescript');
-    const source = ts.createSourceFile('firebaseConfig.ts', readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true);
-    const config = {};
-    function visit(node) {
-        if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === 'firebaseConfig'
-            && node.initializer && ts.isObjectLiteralExpression(node.initializer)) {
-            for (const property of node.initializer.properties) {
-                if (ts.isPropertyAssignment(property) && (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name))
-                    && CONFIG_FIELDS.has(property.name.text) && ts.isStringLiteral(property.initializer)) {
-                    config[property.name.text] = property.initializer.text;
-                }
-            }
-        }
-        ts.forEachChild(node, visit);
-    }
-    visit(source);
+    const found = parseFirebaseConfigSource(readFileSync(path, 'utf8'));
+    const config = Object.fromEntries(Object.entries(found).filter(([key]) => CONFIG_FIELDS.has(key)));
     if (!config.apiKey || !config.projectId || !config.appId) {
         throw new Error(`${basename(path)} must contain apiKey, projectId and appId as strings in the firebaseConfig object.`);
     }

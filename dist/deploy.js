@@ -3,8 +3,8 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
-import { firebaseConfigFromEnv, isFirebaseConfigured } from "./config.js";
-import { todayIso } from "./utils/dates.js";
+import { firebaseConfigFromEnv, isFirebaseConfigured } from './config.js';
+import { todayIso } from './utils/dates.js';
 export const VERSION_TYPES = ['patch', 'minor', 'major'];
 const USAGE = 'Usage: npm run deploy [-- --check|--patch|--minor|--major]';
 /** Parses the arguments; returns null if they are not valid. */

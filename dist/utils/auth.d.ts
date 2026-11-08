@@ -1,5 +1,5 @@
 /** Domains offered to complete the email with one tap. */
-export declare const EMAIL_DOMAINS: readonly ["gmail.com", "hotmail.com", "outlook.es", "yahoo.es", "icloud.com"];
+export declare const EMAIL_DOMAINS: readonly ['gmail.com', 'hotmail.com', 'outlook.es', 'yahoo.es', 'icloud.com'];
 /** The email already has a domain (something like "@example.com"). */
 export declare const hasEmailDomain: (email: string) => boolean;
 /**

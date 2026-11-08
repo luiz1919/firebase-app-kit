@@ -1,6 +1,6 @@
-import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
+import { Fragment as _Fragment, jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useId, useState } from 'react';
-import { AI_PROVIDERS, AiError, DEFAULT_ANTHROPIC_MODEL, listModels, suggestModel } from "../ai/providers.js";
+import { AI_PROVIDERS, AiError, DEFAULT_ANTHROPIC_MODEL, listModels, suggestModel } from '../ai/providers.js';
 function ProviderCard({ info, settings, actions }) {
     const saved = settings.providers[info.id];
     const [editingKey, setEditingKey] = useState(!saved);

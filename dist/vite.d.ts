@@ -23,6 +23,12 @@ export interface ServiceWorkerOptions {
  * /assets/ files of this build (`buildAssets`), so files loaded later with import() are kept offline.
  */
 export declare function serviceWorkerSource({ cacheName, staticFiles }: ServiceWorkerOptions, buildAssets?: readonly string[]): string;
+/**
+ * The string properties of the `firebaseConfig` object literal (`const firebaseConfig = { ... }`,
+ * with or without a type annotation), read without running or compiling the file. Other values
+ * (numbers, variables, expressions) are ignored.
+ */
+export declare function parseFirebaseConfigSource(source: string): Record<string, string>;
 /** Reads the firebaseConfig object from a file copied from the Firebase console. Returns {} if it does not exist. */
 export declare function readFirebaseConfigFile(path: string): Promise<FirebaseWebConfig>;
 /**

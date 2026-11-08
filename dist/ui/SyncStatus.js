@@ -1,7 +1,7 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { usePopover } from "../react/popover.js";
-import { SYNC_LABELS, syncDetail } from "../utils/sync.js";
-import { CloudAlertIcon, CloudCheckIcon, CloudOffIcon, CloudUploadIcon } from "./icons.js";
+import { usePopover } from '../react/popover.js';
+import { SYNC_LABELS, syncDetail } from '../utils/sync.js';
+import { CloudAlertIcon, CloudCheckIcon, CloudOffIcon, CloudUploadIcon } from './icons.js';
 const ICONS = { synced: CloudCheckIcon, syncing: CloudUploadIcon, offline: CloudOffIcon, error: CloudAlertIcon };
 /**
  * Cloud icon with the sync state; tapping it opens a panel with the explanation. The panel is

@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
-import { isFirebaseConfigured } from "./config.js";
+import { isFirebaseConfigured } from './config.js';
 /**
  * Starts Firebase if the config is complete. Otherwise everything is null and the app
  * can show its "setup pending" notice.

@@ -1,6 +1,6 @@
 // AI settings shared by the apps. Each app stores them in the user's account (suggested document:
 // users/{uid}/settings/ai), never in the code, the bundle or the backups.
-import { AI_PROVIDERS, isAiProviderId } from "./providers.js";
+import { AI_PROVIDERS, isAiProviderId } from './providers.js';
 export const DEFAULT_AI_SETTINGS = { providers: {}, lastProvider: null, anthropicFallback: true };
 function isRecord(value) {
     return typeof value === 'object' && value !== null && !Array.isArray(value);

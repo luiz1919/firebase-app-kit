@@ -1,6 +1,6 @@
 {
   "name": "firebase-app-kit",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "private": true,
   "description": "Shared building blocks of the Vite + React + Firebase apps (CommunityAssistant, TripPlanner, Labia)",
   "license": "MIT",
@@ -77,7 +77,7 @@
     "firebase": "^13.2.0",
     "oxlint": "^1.90.0",
     "react": "^19.3.1",
-    "typescript": "~6.0.3",
+    "typescript": "~7.0.2",
     "vite": "^8.3.5"
   },
   "overrides": {

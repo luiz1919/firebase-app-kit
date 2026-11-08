@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword } from 'firebase/auth';
-import { authErrorMessage, canCompleteEmailDomain, completeEmailDomain, hasEmailDomain } from "../utils/auth.js";
+import { authErrorMessage, canCompleteEmailDomain, completeEmailDomain, hasEmailDomain } from '../utils/auth.js';
 /** Tracks the Firebase Auth session. */
 export function useAuthUser(auth) {
     const [state, setState] = useState({ user: null, ready: !auth, error: '' });

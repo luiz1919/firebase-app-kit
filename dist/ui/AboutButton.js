@@ -1,7 +1,7 @@
-import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
+import { Fragment as _Fragment, jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useId, useRef } from 'react';
-import { formatBuildTime } from "../utils/build.js";
-import { CloseIcon, ExternalLinkIcon, InfoIcon } from "./icons.js";
+import { formatBuildTime } from '../utils/build.js';
+import { CloseIcon, ExternalLinkIcon, InfoIcon } from './icons.js';
 const DEFAULT_DEVELOPER = { name: 'luiz1919 en GitHub', url: 'https://github.com/luiz1919' };
 /** "Acerca de" (About) link that opens a modal dialog with the version, commit, build date and developer. */
 export function AboutButton({ appName, build, developer = DEFAULT_DEVELOPER }) {

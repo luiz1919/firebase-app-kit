@@ -1,5 +1,5 @@
 import type { FirebaseWebConfig } from './config.ts';
-export declare const VERSION_TYPES: readonly ["patch", "minor", "major"];
+export declare const VERSION_TYPES: readonly ['patch', 'minor', 'major'];
 export type VersionType = (typeof VERSION_TYPES)[number];
 export interface DeployOptions {
     /** Name shown in the banner. */

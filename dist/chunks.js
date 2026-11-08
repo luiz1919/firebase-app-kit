@@ -2,7 +2,7 @@
 // chunks/0000, chunks/0001... subcollection, shaped { index, data: Bytes }.
 // This way Firebase Storage is not needed. Each app decides where the metadata goes and which fields it has.
 import { Bytes, collection, doc, getDocs, getDocsFromServer } from 'firebase/firestore';
-import { CHUNK_BYTES, chunkCountOf } from "./utils/files.js";
+import { CHUNK_BYTES, chunkCountOf } from './utils/files.js';
 const chunkRef = (parent, index) => doc(parent, 'chunks', String(index).padStart(4, '0'));
 /**
  * Adds the file metadata (`metadata`, at `parent`) and its chunks to `batch`. Committing the batch

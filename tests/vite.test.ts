@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, test } from 'node:test'
-import { firebaseAppKit, readFirebaseConfigFile, serviceWorkerSource } from '../src/vite.ts'
+import { firebaseAppKit, parseFirebaseConfigSource, readFirebaseConfigFile, serviceWorkerSource } from '../src/vite.ts'
 
 const dir = mkdtempSync(join(tmpdir(), 'firebase-app-kit-'))
 after(() => rmSync(dir, { recursive: true, force: true }))
@@ -35,6 +35,32 @@ test('reads the firebaseConfig object without running the file', async () => {
     messagingSenderId: '123',
     appId: '1:123:web:abc',
   })
+})
+
+test('the config is read without TypeScript: comments, quotes, types and other values', () => {
+  const source = `/* config */ import type { FirebaseOptions } from 'firebase/app'
+const other = { apiKey: "not this one" }
+export const firebaseConfig: FirebaseOptions = {
+  // apiKey: "commented out",
+  apiKey: 'single-quoted',
+  'authDomain': \`demo.firebaseapp.com\`,
+  projectId: "de\\"mo",
+  storageBucket: "a" + "b",
+  messagingSenderId: 123,
+  appId: \`\${prefix}-app\`,
+  nested: { apiKey: "inner" },
+  list: ["x", "y"],
+  measurementId: "G-1" /* trailing */
+}`
+  assert.deepEqual(parseFirebaseConfigSource(source), {
+    apiKey: 'single-quoted',
+    authDomain: 'demo.firebaseapp.com',
+    projectId: 'de"mo',
+    measurementId: 'G-1',
+  })
+  assert.deepEqual(parseFirebaseConfigSource('const config = { apiKey: "x" }'), {})
+  assert.deepEqual(parseFirebaseConfigSource('firebaseConfig = { apiKey: "x" }'), {}, 'only declarations')
+  assert.deepEqual(parseFirebaseConfigSource(''), {})
 })
 
 test('returns {} without a file', async () => {
