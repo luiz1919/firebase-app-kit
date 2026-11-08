@@ -1,0 +1,30 @@
+# Dependabot: proposes dependency updates via pull requests.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Europe/Madrid
+    open-pull-requests-limit: 5
+    # Minor and patch updates go together in a single PR; major ones, separately.
+    groups:
+      menores:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: deps
+
+  # Keeps the actions used in .github/workflows up to date.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      acciones:
+        patterns:
+          - '*'
+    commit-message:
+      prefix: ci
