@@ -1,5 +1,5 @@
 /*
- * firebase-app-kit/ui: styles of AboutButton, LoginForm and SyncStatus.
+ * firebase-app-kit/ui: styles of AboutButton, LoginForm, SyncStatus and AiSettingsPanel.
  *
  * Import it once, before the app's own CSS (so the app can override any rule), and theme it with
  * these variables on :root (all optional; the fallbacks are TripPlanner's colors):
@@ -14,6 +14,8 @@
  *   --kit-surface         background of fields, chips, dialog, panel   (#fff)
  *   --kit-danger          error text and border                        (#a63d35)
  *   --kit-danger-soft     error background                             (#fbeeea)
+ *   --kit-success / --kit-success-soft   "ok" notices and the free-tier badge  (#1f6f50 / #e3f2ea)
+ *   --kit-warning / --kit-warning-soft   warning notices                       (#8a5a12 / #fff4dc)
  *   --kit-radius          corner radius of fields, buttons and panels  (6px)
  *   --kit-sync-synced / --kit-sync-syncing / --kit-sync-offline / --kit-sync-error
  *                         color of the sync icon in each state
@@ -72,3 +74,28 @@
 .kit-sync-details strong { font-size: 14px; }
 .kit-sync-details p { margin: 0; line-height: 1.5; color: var(--kit-muted, #656f69); }
 .kit-sync-details .kit-secondary-button { margin-top: 5px; }
+
+/* AI settings panel */
+.kit-ai-list { display: flex; flex-direction: column; gap: 14px; margin: 0; padding: 0; list-style: none; }
+.kit-ai-card { display: flex; flex-direction: column; gap: 12px; padding: 18px; border: 1px solid var(--kit-border, #dce3df); border-radius: calc(var(--kit-radius, 6px) + 4px); background: var(--kit-surface, #fff); color: var(--kit-text, inherit); }
+.kit-ai-card-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; }
+.kit-ai-card-title { margin: 0; font-size: 17px; font-weight: 600; }
+.kit-badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; background: var(--kit-accent-soft, #e1efea); color: var(--kit-muted, #656f69); font-size: 12px; font-weight: 500; white-space: nowrap; }
+.kit-badge-ok { background: var(--kit-success-soft, #e3f2ea); color: var(--kit-success, #1f6f50); }
+.kit-ai-meta { margin: 0; color: var(--kit-muted, #656f69); font-size: 14px; overflow-wrap: anywhere; }
+.kit-ai-form { display: flex; flex-direction: column; gap: 14px; }
+.kit-field { display: flex; flex-direction: column; gap: 8px; }
+.kit-field > label { font-size: 14px; font-weight: 500; }
+.kit-hint { margin: 0; color: var(--kit-muted, #656f69); font-size: 13px; line-height: 1.5; }
+.kit-link { color: var(--kit-accent, #17685b); }
+.kit-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
+.kit-link-button { min-height: 44px; padding: 4px 2px; border: 0; background: none; color: var(--kit-accent, #17685b); font: inherit; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.kit-link-danger { color: var(--kit-danger, #a63d35); }
+.kit-link-button:focus-visible { outline: 2px solid var(--kit-accent, #17685b); outline-offset: 3px; }
+.kit-checkbox { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.45; cursor: pointer; }
+.kit-checkbox input { width: 18px; height: 18px; margin: 1px 0 0; flex: 0 0 auto; accent-color: var(--kit-accent, #17685b); }
+.kit-notice { margin: 0; padding: 12px 14px; border-left: 3px solid var(--kit-border, #dce3df); border-radius: 0 var(--kit-radius, 6px) var(--kit-radius, 6px) 0; font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+.kit-notice-ok { border-color: var(--kit-success, #1f6f50); background: var(--kit-success-soft, #e3f2ea); color: var(--kit-success, #1f6f50); }
+.kit-notice-warn { border-color: var(--kit-warning, #8a5a12); background: var(--kit-warning-soft, #fff4dc); color: var(--kit-warning, #8a5a12); }
+.kit-notice-error { border-color: var(--kit-danger, #a63d35); background: var(--kit-danger-soft, #fbeeea); color: var(--kit-danger, #a63d35); }
+select.kit-input { padding-block: 8px; }

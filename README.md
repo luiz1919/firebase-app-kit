@@ -2,13 +2,15 @@
 
 Shared building blocks for the Vite + React + Firebase apps in `labs/`
 (CommunityAssistant, TripPlanner and Labia). It contains infrastructure and the few UI pieces
-every app repeats (login form, "Acerca de" (About), sync status); no screens or app-specific data.
+every app repeats (login form, "Acerca de" (About), sync status, AI settings); no screens or
+app-specific data.
 
 | Import | What it does |
 |--------|--------------|
 | `firebase-app-kit` | `initFirebase(config)`: starts Auth and Firestore with a persistent cache. `firebaseConfigFromEnv(env, fallback)`, `isFirebaseConfigured(config)`. Chunked files in Firestore: `stageChunkedFile`, `stageChunkedFileDelete`, `readChunkedFile`, `joinChunks` |
 | `firebase-app-kit/react` | Hooks: `useAuthUser(auth)` (session), `useEmailLogin(auth)` (login form), `usePopover()` (panel that closes on an outside tap or Escape), `useOnline()` |
-| `firebase-app-kit/ui` | React components: `LoginForm`, `AboutButton`, `SyncStatus`. Styles in `firebase-app-kit/ui.css`, themed with `--kit-*` CSS variables (see [UI components](#ui-components)) |
+| `firebase-app-kit/ai` | No dependencies (works in Node tests): AI with the user's own key, from the browser (Google Gemini, OpenAI, Anthropic Claude). `askAi`, `listModels`, `parseJsonObject`, `AI_PROVIDERS`, `providerName`, `suggestModel`, `AiError`; settings shape `AiSettings`, `DEFAULT_AI_SETTINGS`, `parseAiSettings`, `activeAi` (see [AI](#ai)) |
+| `firebase-app-kit/ui` | React components: `LoginForm`, `AboutButton`, `SyncStatus`, `AiSettingsPanel`. Styles in `firebase-app-kit/ui.css`, themed with `--kit-*` CSS variables (see [UI components](#ui-components)) |
 | `firebase-app-kit/utils` | No dependencies (works in Node tests): `authErrorMessage`, `EMAIL_DOMAINS`, `hasEmailDomain`, `canCompleteEmailDomain`, `completeEmailDomain`, `SyncState`, `SYNC_LABELS`, `SYNC_DETAILS`, `syncDetail`, `BuildInfo`, `formatBuildTime`, `todayIso`, `formatDate`, `fileTimestamp`, `fileTypeOf`, `readFileBytes`, `downloadBlob`, `CHUNK_BYTES`, `chunkCountOf`. Generated files: `shareOrDownload`, `openFile`, `needsNewTap`, `isTouchDevice` (browser only when called). Text PDF reports: `PdfDocument`, `wrapPdfText`, `pdfTextWidth` |
 | `firebase-app-kit/vite` | `firebaseAppKit()` plugin: defines `__APP_VERSION__`, `__APP_COMMIT__`, `__BUILD_TIME__` and `__FIREBASE_CONFIG__`, and can generate the offline service worker (`/sw.js`) |
 | `firebase-app-kit/deploy` | `deploy({ appName, projectId, changelog? })`: the `npm run deploy` flow, optionally updating a changelog |
@@ -18,7 +20,7 @@ every app repeats (login form, "Acerca de" (About), sync status); no screens or 
 ## Install in an app
 
 ```bash
-npm install github:luiz1919/firebase-app-kit#v0.9.0
+npm install github:luiz1919/firebase-app-kit#v0.10.0
 ```
 
 It is installed from GitHub, not from npm. `dist/` is committed so installing
@@ -121,6 +123,10 @@ const build = { version: __APP_VERSION__, commit: __APP_COMMIT__, buildTime: __B
 - `SyncStatus`: cloud icon button; its panel is positioned against the component's own wrapper
   (`.kit-sync`, `position: relative`), right-aligned with the button. To anchor it to a wider
   container instead, give that container `position: relative` and set `.kit-sync { position: static }`.
+- `AiSettingsPanel`: `<AiSettingsPanel settings={aiSettings} actions={aiActions} />`, one card per
+  AI provider: save, change or delete the key, "Probar conexión" (Test connection: lists the models
+  without spending quota and suggests one), the model, and Claude's fallback checkbox. The app owns
+  the page heading and its privacy notes, and stores the settings through `actions` (see [AI](#ai)).
 
 All classes start with `kit-`. Theme them with these optional variables (fallbacks: TripPlanner's colors):
 
@@ -135,6 +141,8 @@ All classes start with `kit-`. Theme them with these optional variables (fallbac
 | `--kit-border`, `--kit-input-border` | Borders; text field borders |
 | `--kit-surface` | Background of fields, chips, dialog and panel |
 | `--kit-danger`, `--kit-danger-soft` | Error text/border and background |
+| `--kit-success`, `--kit-success-soft` | "Ok" notices and the free-tier badge of the AI panel |
+| `--kit-warning`, `--kit-warning-soft` | Warning notices of the AI panel |
 | `--kit-radius` | Corner radius of fields, buttons and panels |
 | `--kit-sync-synced`, `--kit-sync-syncing`, `--kit-sync-offline`, `--kit-sync-error` | Sync icon color per state |
 
@@ -212,6 +220,61 @@ pdf.ensure(blockHeight)                               // new page if the block d
 pdf.footer('Mi App · Informe 2026')                   // on every page, with "Página N de M"
 const bytes = pdf.toBytes({ title: 'Informe 2026', producer: 'Mi App' })
 ```
+
+## AI
+
+`firebase-app-kit/ai` calls the AI providers straight from the browser with the user's own key
+(no SDK and no server): Google Gemini (free tier with limits), OpenAI and Anthropic (Claude). The
+key belongs to the user and lives in their account, never in the code or the bundle.
+
+```ts
+import { activeAi, AiError, askAi, parseAiSettings, parseJsonObject } from 'firebase-app-kit/ai'
+
+const settings = parseAiSettings(snapshot.data())   // users/{uid}/settings/ai, or wherever the app keeps it
+const ai = activeAi(settings)                       // last provider used if ready, else the first ready one; null if none
+if (ai) {
+  try {
+    const { text, model, note } = await askAi(ai.provider, { system, question, images, schema }, {
+      apiKey: ai.apiKey, model: ai.model,
+      fallback: settings.anthropicFallback,           // Claude: retry with another Anthropic model if it refuses
+      effort: 'low',                                  // Claude only (output_config.effort)
+      maxTokens: 2000,                                // Claude: 16000 by default; others only when given
+    })
+    const answer = schema ? parseJsonObject(text) : text
+  } catch (error) {
+    if (error instanceof AiError) show(error.message)   // Spanish; error.kind: auth, quota, network, timeout, refusal, other
+  }
+}
+```
+
+- `images`: `[{ mediaType: 'image/jpeg', data: base64 }]` (no `data:` prefix), sent before the question.
+- `schema` (a JSON Schema object) asks for one JSON object. **Claude** gets it as a structured
+  output (`output_config.format`, so objects need `additionalProperties: false` and `required`).
+  **Gemini** and **OpenAI** only get their JSON mode (`responseMimeType: application/json`,
+  `response_format: json_object`), so the prompt must also say "JSON" and describe the shape.
+  Read the answer with `parseJsonObject(text)`, which also tolerates Markdown fences and text around
+  the object.
+- A refused question throws `AiError` with kind `refusal`; an answer cut by the token limit throws
+  kind `other` ("La respuesta de la IA se ha cortado...").
+- `listModels(provider, apiKey)` checks a key without spending quota; `suggestModel` picks a
+  sensible default from that list (Claude: `DEFAULT_ANTHROPIC_MODEL`).
+
+Settings shape, stored per user (suggested document: `users/{uid}/settings/ai`, readable and
+writable only by its owner in the Firestore rules):
+
+```ts
+interface AiSettings {
+  providers: Partial<Record<'anthropic' | 'gemini' | 'openai', { apiKey: string; model: string; models?: string[] }>>
+  lastProvider: 'anthropic' | 'gemini' | 'openai' | null
+  anthropicFallback: boolean   // true by default
+}
+```
+
+`parseAiSettings` ignores unknown providers, entries without a key and malformed fields. The
+`AiSettingsPanel` component (in `firebase-app-kit/ui`) edits them through `AiSettingsActions`
+(`saveProvider(id, partialValues)`, `removeProvider(id)`, `setLastProvider(id)`,
+`setAnthropicFallback(enabled)`); with Firestore, `setDoc(ref, { providers: { [id]: values } }, { merge: true })`
+saves only the given fields and `deleteField()` removes a provider.
 
 ## Service worker
 
