@@ -352,7 +352,9 @@ npm run check    # lint, types, tests and build to dist/
 
 To release a version:
 
-1. Change `version` in `package.json` (for example to 0.5.0) and run `npm run check`.
+1. Change `version` in `package.json` (for example to 0.5.0), move the entries under
+   "Unreleased" in [CHANGELOG.md](CHANGELOG.md) to the new version (with its compare link) and
+   run `npm run check`.
 2. Commit **including `dist/`** and create the tag: `git tag v0.5.0`.
 3. `git push && git push --tags`.
 4. In each app: `npm install github:luiz1919/firebase-app-kit#v0.5.0`.
