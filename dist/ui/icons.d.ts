@@ -28,3 +28,24 @@ export declare const CloudOffIcon: ({ size }: {
 export declare const CloudAlertIcon: ({ size }: {
     size?: number;
 }) => import("react").JSX.Element;
+export declare const MessageIcon: ({ size }: {
+    size?: number;
+}) => import("react").JSX.Element;
+export declare const PlusIcon: ({ size }: {
+    size?: number;
+}) => import("react").JSX.Element;
+export declare const ArrowLeftIcon: ({ size }: {
+    size?: number;
+}) => import("react").JSX.Element;
+export declare const ImagePlusIcon: ({ size }: {
+    size?: number;
+}) => import("react").JSX.Element;
+export declare const CopyIcon: ({ size }: {
+    size?: number;
+}) => import("react").JSX.Element;
+export declare const PencilIcon: ({ size }: {
+    size?: number;
+}) => import("react").JSX.Element;
+export declare const TrashIcon: ({ size }: {
+    size?: number;
+}) => import("react").JSX.Element;

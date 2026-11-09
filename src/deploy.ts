@@ -5,7 +5,11 @@ import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
 import { firebaseConfigFromEnv, isFirebaseConfigured } from './config.ts'
 import type { FirebaseWebConfig } from './config.ts'
+import { rulesSnippetProblem } from './rules.ts'
 import { todayIso } from './utils/dates.ts'
+
+export { RULES_SNIPPETS, kitRulesSnippet, outdatedRulesSnippets, rulesSnippetProblem, syncRulesFile, updateRulesSnippets } from './rules.ts'
+export type { RulesSnippetName, RulesUpdate } from './rules.ts'
 
 export const VERSION_TYPES = ['patch', 'minor', 'major'] as const
 export type VersionType = (typeof VERSION_TYPES)[number]
@@ -454,6 +458,10 @@ export async function deploy(options: DeployOptions): Promise<void> {
       changelog = { file: options.changelog, content: addChangelogVersion(content, { version: newVersion, date, notes, previousTag, repoUrl }) }
     }
   }
+
+  // Firestore rules blocks copied from the kit (e.g. feedback) must match the installed kit.
+  const rulesProblem = rulesSnippetProblem(root)
+  if (rulesProblem) fail(rulesProblem)
 
   console.log('\n📥 Installing dependencies...')
   run('npm', ['ci'])

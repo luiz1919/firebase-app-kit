@@ -1,8 +1,8 @@
 {
   "name": "firebase-app-kit",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "private": true,
-  "description": "Shared building blocks of the Vite + React + Firebase apps (CommunityAssistant, TripPlanner, Labia)",
+  "description": "Shared building blocks of the Vite + React + Firebase apps (CommunityAssistant, TripPlanner, Labia, Supermerk2)",
   "license": "MIT",
   "type": "module",
   "files": [
@@ -10,8 +10,13 @@
     "styles",
     "config",
     "sw",
+    "rules",
+    "bin",
     "globals.d.ts"
   ],
+  "bin": {
+    "firebase-app-kit": "bin/firebase-app-kit.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -42,17 +47,23 @@
       "types": "./dist/deploy.d.ts",
       "default": "./dist/deploy.js"
     },
+    "./rules-testing": {
+      "types": "./dist/rulesTesting.d.ts",
+      "default": "./dist/rulesTesting.js"
+    },
     "./globals": {
       "types": "./globals.d.ts"
     },
-    "./config/*": "./config/*"
+    "./config/*": "./config/*",
+    "./rules/*": "./rules/*"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "oxlint",
     "test": "node --test tests/*.test.ts",
-    "check": "npm run lint && npm run typecheck && npm test && npm run build"
+    "check": "npm run lint && npm run typecheck && npm test && npm run build",
+    "test:rules": "firebase emulators:exec --config firebase.emulator.json --project demo-firebase-app-kit --only firestore \"node --test tests/emulator/*.test.ts\""
   },
   "peerDependencies": {
     "firebase": ">=12",
@@ -72,6 +83,7 @@
     }
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^6.0.0",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "firebase": "^13.2.0",

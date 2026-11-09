@@ -2,3 +2,4 @@ node_modules/
 *.tgz
 .DS_Store
 # dist/ IS committed: the apps install the kit from GitHub without building it.
+firestore-debug.log

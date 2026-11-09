@@ -50,3 +50,31 @@ export const CloudOffIcon = ({ size = 23 }: { size?: number }) => (
 export const CloudAlertIcon = ({ size = 23 }: { size?: number }) => (
   <Icon size={size}><path d="M12 12v4" /><path d="M12 20h.01" /><path d="M8.128 16.949A7 7 0 1 1 15.71 8h1.79a1 1 0 0 1 0 9h-1.642" /></Icon>
 )
+
+export const MessageIcon = ({ size = 22 }: { size?: number }) => (
+  <Icon size={size}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="M13 8H7" /><path d="M17 12H7" /></Icon>
+)
+
+export const PlusIcon = ({ size = 18 }: { size?: number }) => (
+  <Icon size={size}><path d="M5 12h14" /><path d="M12 5v14" /></Icon>
+)
+
+export const ArrowLeftIcon = ({ size = 20 }: { size?: number }) => (
+  <Icon size={size}><path d="m12 19-7-7 7-7" /><path d="M19 12H5" /></Icon>
+)
+
+export const ImagePlusIcon = ({ size = 18 }: { size?: number }) => (
+  <Icon size={size}><path d="M16 5h6" /><path d="M19 2v6" /><path d="M21 11.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7.5" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" /><circle cx="9" cy="9" r="2" /></Icon>
+)
+
+export const CopyIcon = ({ size = 16 }: { size?: number }) => (
+  <Icon size={size}><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></Icon>
+)
+
+export const PencilIcon = ({ size = 16 }: { size?: number }) => (
+  <Icon size={size}><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /><path d="m15 5 4 4" /></Icon>
+)
+
+export const TrashIcon = ({ size = 16 }: { size?: number }) => (
+  <Icon size={size}><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></Icon>
+)

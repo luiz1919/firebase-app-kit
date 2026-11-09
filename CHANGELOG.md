@@ -10,6 +10,42 @@ Versions up to v0.11.0 were written afterwards from the tags, the commits and th
 
 _Nothing yet._
 
+## [v0.12.0] - 2026-11-09
+
+### Added
+
+- Feedback ("Comentarios") for every app: `FeedbackButton` in `firebase-app-kit/ui`, a header icon
+  that opens a dialog with the app's feedback (filters "Abiertos", "Míos", "Cerrados" and, for
+  admins, "Nuevos"), a form (kind, text, up to 3 screenshots, optional technical details, hint of
+  similar existing feedback) and each item with its status and reply. Admins (`admins/{uid}`) get
+  a count of new items, set status, reply and "resolved in" version, copy it as Markdown, open a
+  prefilled GitHub issue and delete. Data in the app's Firestore: `feedback/{id}` with
+  `screenshots/` and `private/diagnostics`.
+- Firestore side in the main entry (`submitFeedback`, `watchFeedback`, `editFeedback`,
+  `manageFeedback`, `markFeedbackReplyRead`, `deleteFeedback`, `readFeedbackScreenshots`,
+  `readFeedbackDiagnostics`, watchers for the counts) and hooks in `firebase-app-kit/react`
+  (`useFeedbackAdmin`, `useFeedbackBadge`, `useFeedbackList`).
+- `firebase-app-kit/utils`: feedback kinds/statuses/labels, `similarFeedback`, `feedbackToMarkdown`,
+  `githubIssueUrl`, `collectFeedbackContext`; an error log (`installErrorLog`, `recentErrors`:
+  uncaught errors, rejected promises and `console.error`, kept in sessionStorage); images
+  `imageToJpeg` (within a size and a byte limit), `imageToJpegBase64` and `fitWithin` (Labia and
+  Supermerk2 had the same `image.ts`).
+- Firestore rules blocks owned by the kit: `rules/feedback.rules`, added to an app's
+  `firestore.rules` and kept current with `npx firebase-app-kit rules [feedback]` (new `bin`).
+  `deploy` fails while a block is outdated. `firebase-app-kit/rules-testing` exports
+  `feedbackRulesTests`, run by each app against its own rules.
+
+### Upgrade
+
+- Add the feedback: `installErrorLog()` in `main.tsx`, `<FeedbackButton db user appName build
+  githubRepo />` before `<SyncStatus />` (one more 40 px column in the header layout),
+  `npx firebase-app-kit rules feedback`, `feedbackRulesTests(...)` in the rules tests, publish the
+  rules before deploying, and create `admins/{uid}` in the Firebase console. See the README.
+
+### Kit development
+
+- `npm run test:rules` runs the feedback rules tests in the Firestore emulator (port 8089).
+
 ## [v0.11.0] - 2026-11-09
 
 ### Changed
@@ -202,6 +238,7 @@ _Nothing yet._
 
 - Never tagged: commit [93c55b4](https://github.com/luiz1919/firebase-app-kit/commit/93c55b4).
 
+[v0.12.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.11.0...v0.12.0
 [v0.11.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.10.1...v0.11.0
 [v0.10.1]: https://github.com/luiz1919/firebase-app-kit/compare/v0.10.0...v0.10.1
 [v0.10.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.9.0...v0.10.0

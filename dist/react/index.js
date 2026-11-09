@@ -2,3 +2,4 @@
 export { useAuthUser, useEmailLogin } from './auth.js';
 export { useOnline } from './online.js';
 export { usePopover } from './popover.js';
+export { useFeedbackAdmin, useFeedbackBadge, useFeedbackList } from './feedback.js';

@@ -1,0 +1,291 @@
+// In-app feedback ("Comentarios"): kinds, statuses, parsing, search for similar feedback, and the
+// Markdown / GitHub issue text. No dependencies: usable in the browser and in Node tests.
+// Stored in Firestore as feedback/{id} (see firebase-app-kit/rules/feedback.rules).
+import type { BuildInfo } from './build.ts'
+import type { ErrorLogEntry } from './errorLog.ts'
+
+export const FEEDBACK_KINDS = ['bug', 'idea', 'other'] as const
+export type FeedbackKind = (typeof FEEDBACK_KINDS)[number]
+
+/** Kind as the user picks it. */
+export const FEEDBACK_KIND_LABELS: Readonly<Record<FeedbackKind, string>> = {
+  bug: 'Algo no funciona',
+  idea: 'Propuesta de mejora',
+  other: 'Otro',
+}
+
+/** Kind in the badges of the list. */
+export const FEEDBACK_KIND_BADGES: Readonly<Record<FeedbackKind, string>> = { bug: 'Fallo', idea: 'Mejora', other: 'Otro' }
+
+export const FEEDBACK_STATUSES = ['new', 'in-progress', 'done', 'declined'] as const
+export type FeedbackStatus = (typeof FEEDBACK_STATUSES)[number]
+
+export const FEEDBACK_STATUS_LABELS: Readonly<Record<FeedbackStatus, string>> = {
+  new: 'Nuevo',
+  'in-progress': 'En curso',
+  done: 'Resuelto',
+  declined: 'Descartado',
+}
+
+/** Limits shared with the Firestore rules. */
+export const FEEDBACK_LIMITS = { text: 4000, reply: 4000, version: 40, screenshots: 3 } as const
+
+export interface FeedbackItem {
+  id: string
+  kind: FeedbackKind
+  text: string
+  status: FeedbackStatus
+  createdBy: string
+  createdByEmail: string
+  /** null only for a moment, while the server date of a new item is pending. */
+  createdAt: Date | null
+  editedAt: Date | null
+  /** App version the feedback was sent from. */
+  appVersion: string
+  screenshotCount: number
+  hasDiagnostics: boolean
+  /** Admin's reply, or ''. */
+  reply: string
+  repliedAt: Date | null
+  /** false while the author has not seen the latest reply. */
+  replyRead: boolean
+  /** Version that solved it, or ''. */
+  resolvedVersion: string
+  /** Created on this device and not on the server yet (not stored: from the snapshot metadata). */
+  sending: boolean
+}
+
+/** Technical details sent with the feedback when the user allows it (feedback/{id}/private/diagnostics). */
+export interface FeedbackDiagnostics {
+  context: Record<string, string | number | boolean>
+  errors: ErrorLogEntry[]
+}
+
+const isKind = (value: unknown): value is FeedbackKind => FEEDBACK_KINDS.includes(value as FeedbackKind)
+const isStatus = (value: unknown): value is FeedbackStatus => FEEDBACK_STATUSES.includes(value as FeedbackStatus)
+const text = (value: unknown): string => (typeof value === 'string' ? value : '')
+
+/** Firestore Timestamp (anything with toDate()), Date or nothing. */
+function dateOf(value: unknown): Date | null {
+  if (value instanceof Date) return value
+  if (typeof value === 'object' && value !== null && 'toDate' in value && typeof value.toDate === 'function') {
+    const date: unknown = value.toDate()
+    return date instanceof Date ? date : null
+  }
+  return null
+}
+
+/** Reads a feedback document defensively (unknown values fall back to safe defaults). */
+export function feedbackFromData(id: string, data: Record<string, unknown>): FeedbackItem {
+  const count = Number(data.screenshotCount)
+  return {
+    id,
+    kind: isKind(data.kind) ? data.kind : 'other',
+    text: text(data.text),
+    status: isStatus(data.status) ? data.status : 'new',
+    createdBy: text(data.createdBy),
+    createdByEmail: text(data.createdByEmail),
+    createdAt: dateOf(data.createdAt),
+    editedAt: dateOf(data.editedAt),
+    appVersion: text(data.appVersion),
+    screenshotCount: Number.isInteger(count) ? Math.min(Math.max(count, 0), FEEDBACK_LIMITS.screenshots) : 0,
+    hasDiagnostics: data.hasDiagnostics === true,
+    reply: text(data.reply),
+    repliedAt: dateOf(data.repliedAt),
+    replyRead: data.replyRead !== false,
+    resolvedVersion: text(data.resolvedVersion),
+    sending: false,
+  }
+}
+
+export const isOpenFeedback = (item: Pick<FeedbackItem, 'status'>): boolean => item.status === 'new' || item.status === 'in-progress'
+
+/** The author has a reply they have not seen yet. */
+export const hasUnreadReply = (item: FeedbackItem, uid: string): boolean => item.createdBy === uid && item.reply !== '' && !item.replyRead
+
+/** Name shown for an author: the part of the email before the @. */
+export const feedbackAuthorName = (email: string): string => email.split('@')[0] || 'Alguien'
+
+/** First non-empty line, shortened to `max` characters. */
+export function feedbackTitle(value: string, max = 90): string {
+  const line = value.split('\n').map((part) => part.trim()).find(Boolean) ?? ''
+  return line.length > max ? `${line.slice(0, max - 1).trimEnd()}…` : line
+}
+
+/** Text as it is stored: trimmed, with Windows line breaks and runs of blank lines tidied. */
+export const cleanFeedbackText = (value: string): string => value.replace(/\r\n?/g, '\n').replace(/\n{3,}/g, '\n\n').trim()
+
+/** Newest first; items still waiting for their server date go on top. */
+export function sortFeedback(items: readonly FeedbackItem[]): FeedbackItem[] {
+  const time = (item: FeedbackItem) => item.createdAt?.getTime() ?? Number.POSITIVE_INFINITY
+  return [...items].sort((first, second) => time(second) - time(first))
+}
+
+const dateFormatter = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
+
+/** "9 nov 2026", or "Ahora" while the server date is pending. */
+export const formatFeedbackDate = (date: Date | null): string => (date ? dateFormatter.format(date) : 'Ahora')
+
+// Words left out when looking for similar feedback.
+const STOPWORDS = new Set([
+  'que', 'los', 'las', 'una', 'uno', 'unos', 'unas', 'por', 'con', 'para', 'del', 'como', 'pero', 'cuando', 'esta', 'este',
+  'esto', 'estos', 'estas', 'eso', 'ese', 'esa', 'hay', 'muy', 'mas', 'sin', 'sobre', 'tambien', 'porque', 'algo', 'nada',
+  'cada', 'todo', 'toda', 'todos', 'todas', 'tengo', 'tiene', 'puedo', 'puede', 'quiero', 'seria', 'estaria', 'gustaria',
+  'poder', 'hacer', 'cosa', 'veces', 'siempre', 'nunca', 'ahora', 'despues', 'antes', 'entonces', 'donde', 'aqui', 'alli',
+  'app', 'aplicacion', 'the', 'and', 'for', 'with', 'not', 'that', 'this',
+])
+
+/** Normalised word stems of a text (case, accents and common words ignored; 5-letter stems). */
+export function feedbackWords(value: string): Set<string> {
+  const words = value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((word) => word.length >= 3 && !STOPWORDS.has(word))
+  return new Set(words.map((word) => word.slice(0, 5)))
+}
+
+/**
+ * Feedback that looks like `value` (shared words), most similar first, to avoid repeating a
+ * suggestion. Needs at least two words in common, or one when the text has a single word.
+ */
+export function similarFeedback(
+  value: string,
+  items: readonly FeedbackItem[],
+  { excludeId, limit = 3 }: { excludeId?: string; limit?: number } = {},
+): FeedbackItem[] {
+  const words = feedbackWords(value)
+  if (words.size === 0) return []
+  const needed = words.size === 1 ? 1 : 2
+  return items
+    .filter((item) => item.id !== excludeId)
+    .map((item) => {
+      const other = feedbackWords(item.text)
+      let shared = 0
+      for (const word of words) if (other.has(word)) shared += 1
+      return { item, shared }
+    })
+    .filter(({ shared }) => shared >= needed)
+    .sort((first, second) => second.shared - first.shared || Number(isOpenFeedback(second.item)) - Number(isOpenFeedback(first.item)))
+    .slice(0, limit)
+    .map(({ item }) => item)
+}
+
+/** Labels of the technical details, in the order they are shown. */
+export const FEEDBACK_CONTEXT_LABELS: Readonly<Record<string, string>> = {
+  version: 'Versión',
+  commit: 'Commit',
+  buildTime: 'Compilación',
+  route: 'Pantalla de la app',
+  userAgent: 'Navegador',
+  language: 'Idioma',
+  timeZone: 'Zona horaria',
+  viewport: 'Ventana',
+  screen: 'Pantalla',
+  online: 'Con conexión',
+  standalone: 'App instalada',
+  serviceWorker: 'Service worker activo',
+}
+
+/** Technical details of this device and build, for a bug report. Browser only (empty values in Node). */
+export function collectFeedbackContext(build: BuildInfo): Record<string, string | boolean> {
+  const browser = typeof window !== 'undefined' && typeof navigator !== 'undefined'
+  if (!browser) return { version: build.version, commit: build.commit, buildTime: build.buildTime }
+  const standalone = window.matchMedia?.('(display-mode: standalone)').matches === true
+    || (navigator as Navigator & { standalone?: boolean }).standalone === true
+  return {
+    version: build.version,
+    commit: build.commit,
+    buildTime: build.buildTime,
+    route: window.location.hash || window.location.pathname,
+    userAgent: navigator.userAgent,
+    language: navigator.language,
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    viewport: `${window.innerWidth}x${window.innerHeight}`,
+    screen: `${window.screen.width}x${window.screen.height}@${window.devicePixelRatio}`,
+    online: navigator.onLine,
+    standalone,
+    serviceWorker: Boolean(navigator.serviceWorker?.controller),
+  }
+}
+
+const contextValue = (value: string | number | boolean): string => (typeof value === 'boolean' ? (value ? 'sí' : 'no') : String(value))
+
+/** Technical details as [label, value] pairs: known keys first, in order, then any others. */
+export function feedbackContextEntries(context: FeedbackDiagnostics['context']): [string, string][] {
+  const known = Object.keys(FEEDBACK_CONTEXT_LABELS).filter((key) => key in context)
+  const others = Object.keys(context).filter((key) => !(key in FEEDBACK_CONTEXT_LABELS)).sort()
+  return [...known, ...others]
+    .filter((key) => context[key] !== '')
+    .map((key) => [FEEDBACK_CONTEXT_LABELS[key] ?? key, contextValue(context[key])])
+}
+
+export interface FeedbackReportOptions {
+  appName: string
+  diagnostics?: FeedbackDiagnostics | null
+}
+
+function reportBody(item: FeedbackItem, { appName, diagnostics }: FeedbackReportOptions, maxText: number): string {
+  const body = item.text.length > maxText ? `${item.text.slice(0, maxText)}…` : item.text
+  const lines = [
+    body,
+    '',
+    `- App: ${appName}${item.appVersion ? ` v${item.appVersion}` : ''}`,
+    `- Kind: ${FEEDBACK_KIND_LABELS[item.kind]} (${item.kind})`,
+    `- Status: ${FEEDBACK_STATUS_LABELS[item.status]} (${item.status})`,
+    `- Author: ${feedbackAuthorName(item.createdByEmail)}, ${formatFeedbackDate(item.createdAt)}`,
+    `- Firestore: feedback/${item.id}`,
+  ]
+  if (item.screenshotCount > 0) lines.push(`- Screenshots: ${item.screenshotCount} (in the app)`)
+  if (item.reply) lines.push('', '### Reply', '', item.reply)
+  if (diagnostics) {
+    lines.push('', '### Technical details', '')
+    for (const [label, value] of feedbackContextEntries(diagnostics.context)) lines.push(`- ${label}: ${value}`)
+    if (diagnostics.errors.length > 0) {
+      lines.push('', '### Recent errors', '', '```')
+      for (const entry of diagnostics.errors) lines.push(`${entry.at} ${entry.message}`)
+      lines.push('```')
+    }
+  }
+  return lines.join('\n')
+}
+
+/** The feedback as Markdown, to paste into an issue or a chat. */
+export function feedbackToMarkdown(item: FeedbackItem, options: FeedbackReportOptions): string {
+  return `## ${feedbackTitle(item.text, 120)}\n\n${reportBody(item, options, Number.POSITIVE_INFINITY)}`
+}
+
+/** Browsers and GitHub handle URLs up to about 8000 characters. */
+const MAX_ISSUE_URL = 7500
+
+/**
+ * Link to a new GitHub issue with the title, body and label filled in (no token needed: the admin
+ * reviews and submits it on GitHub). `repo` is "owner/name". Long texts are cut to fit the URL.
+ */
+export function githubIssueUrl(repo: string, item: FeedbackItem, options: FeedbackReportOptions): string {
+  const title = feedbackTitle(item.text, 120)
+  const label = item.kind === 'bug' ? 'bug' : item.kind === 'idea' ? 'enhancement' : ''
+  const urlFor = (variant: FeedbackReportOptions, maxText: number) => {
+    const params = new URLSearchParams({ title, body: reportBody(item, variant, maxText) })
+    if (label) params.set('labels', label)
+    return `https://github.com/${repo}/issues/new?${params}`
+  }
+  // Too long: first without the recent errors, then without technical details, then a shorter text.
+  const variants: FeedbackReportOptions[] = [options]
+  if (options.diagnostics) {
+    variants.push({ ...options, diagnostics: { ...options.diagnostics, errors: [] } }, { ...options, diagnostics: null })
+  }
+  for (const variant of variants) {
+    const url = urlFor(variant, item.text.length)
+    if (url.length <= MAX_ISSUE_URL) return url
+  }
+  const shortest = variants[variants.length - 1]
+  let maxText = item.text.length
+  while (maxText > 0) {
+    maxText = Math.floor(maxText * 0.8)
+    const url = urlFor(shortest, maxText)
+    if (url.length <= MAX_ISSUE_URL) return url
+  }
+  return urlFor(shortest, 0)
+}

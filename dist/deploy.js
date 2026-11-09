@@ -4,7 +4,9 @@ import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { firebaseConfigFromEnv, isFirebaseConfigured } from './config.js';
+import { rulesSnippetProblem } from './rules.js';
 import { todayIso } from './utils/dates.js';
+export { RULES_SNIPPETS, kitRulesSnippet, outdatedRulesSnippets, rulesSnippetProblem, syncRulesFile, updateRulesSnippets } from './rules.js';
 export const VERSION_TYPES = ['patch', 'minor', 'major'];
 const USAGE = 'Usage: npm run deploy [-- --check|--patch|--minor|--major]';
 /** Parses the arguments; returns null if they are not valid. */
@@ -409,6 +411,10 @@ export async function deploy(options) {
             changelog = { file: options.changelog, content: addChangelogVersion(content, { version: newVersion, date, notes, previousTag, repoUrl }) };
         }
     }
+    // Firestore rules blocks copied from the kit (e.g. feedback) must match the installed kit.
+    const rulesProblem = rulesSnippetProblem(root);
+    if (rulesProblem)
+        fail(rulesProblem);
     console.log('\n📥 Installing dependencies...');
     run('npm', ['ci']);
     let firebaseConfig;

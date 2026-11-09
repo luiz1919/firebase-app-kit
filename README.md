@@ -1,19 +1,21 @@
 # firebase-app-kit
 
 Shared building blocks for the Vite + React + Firebase apps in `labs/`
-(CommunityAssistant, TripPlanner and Labia). It contains infrastructure and the few UI pieces
-every app repeats (login form, "Acerca de" (About), sync status, AI settings); no screens or
-app-specific data.
+(CommunityAssistant, TripPlanner, Labia and Supermerk2). It contains infrastructure and the few
+UI pieces every app repeats (login form, "Acerca de" (About), sync status, AI settings, feedback);
+no screens or app-specific data.
 
 | Import | What it does |
 |--------|--------------|
-| `firebase-app-kit` | `initFirebase(config)`: starts Auth and Firestore with a persistent cache. `firebaseConfigFromEnv(env, fallback)`, `isFirebaseConfigured(config)`. Chunked files in Firestore: `stageChunkedFile`, `stageChunkedFileDelete`, `readChunkedFile`, `joinChunks` |
-| `firebase-app-kit/react` | Hooks: `useAuthUser(auth)` (session), `useEmailLogin(auth)` (login form), `usePopover()` (panel that closes on an outside tap or Escape), `useOnline()` |
+| `firebase-app-kit` | `initFirebase(config)`: starts Auth and Firestore with a persistent cache. `firebaseConfigFromEnv(env, fallback)`, `isFirebaseConfigured(config)`. Chunked files in Firestore: `stageChunkedFile`, `stageChunkedFileDelete`, `readChunkedFile`, `joinChunks`. Feedback in Firestore: `submitFeedback`, `watchFeedback`, `editFeedback`, `manageFeedback`, `deleteFeedback`... (see [Feedback](#feedback)) |
+| `firebase-app-kit/react` | Hooks: `useAuthUser(auth)` (session), `useEmailLogin(auth)` (login form), `usePopover()` (panel that closes on an outside tap or Escape), `useOnline()`, `useFeedbackAdmin`, `useFeedbackBadge`, `useFeedbackList` |
 | `firebase-app-kit/ai` | No dependencies (works in Node tests): AI with the user's own key, from the browser (Google Gemini, OpenAI, Anthropic Claude). `askAi`, `listModels`, `parseJsonObject`, `AI_PROVIDERS`, `providerName`, `suggestModel`, `AiError`; settings shape `AiSettings`, `DEFAULT_AI_SETTINGS`, `parseAiSettings`, `activeAi` (see [AI](#ai)) |
-| `firebase-app-kit/ui` | React components: `LoginForm`, `AboutButton`, `SyncStatus`, `AiSettingsPanel`. Styles in `firebase-app-kit/ui.css`, themed with `--kit-*` CSS variables (see [UI components](#ui-components)) |
-| `firebase-app-kit/utils` | No dependencies (works in Node tests): `authErrorMessage`, `EMAIL_DOMAINS`, `hasEmailDomain`, `canCompleteEmailDomain`, `completeEmailDomain`, `SyncState`, `SYNC_LABELS`, `SYNC_DETAILS`, `syncDetail`, `BuildInfo`, `formatBuildTime`, `todayIso`, `formatDate`, `fileTimestamp`, `fileTypeOf`, `readFileBytes`, `downloadBlob`, `CHUNK_BYTES`, `chunkCountOf`. Generated files: `shareOrDownload`, `openFile`, `needsNewTap`, `isTouchDevice` (browser only when called). Text PDF reports: `PdfDocument`, `wrapPdfText`, `pdfTextWidth` |
+| `firebase-app-kit/ui` | React components: `LoginForm`, `AboutButton`, `SyncStatus`, `AiSettingsPanel`, `FeedbackButton`. Styles in `firebase-app-kit/ui.css`, themed with `--kit-*` CSS variables (see [UI components](#ui-components)) |
+| `firebase-app-kit/utils` | No dependencies (works in Node tests): `authErrorMessage`, `EMAIL_DOMAINS`, `hasEmailDomain`, `canCompleteEmailDomain`, `completeEmailDomain`, `SyncState`, `SYNC_LABELS`, `SYNC_DETAILS`, `syncDetail`, `BuildInfo`, `formatBuildTime`, `todayIso`, `formatDate`, `fileTimestamp`, `fileTypeOf`, `readFileBytes`, `downloadBlob`, `CHUNK_BYTES`, `chunkCountOf`. Generated files: `shareOrDownload`, `openFile`, `needsNewTap`, `isTouchDevice` (browser only when called). Text PDF reports: `PdfDocument`, `wrapPdfText`, `pdfTextWidth`. Images: `imageToJpeg`, `imageToJpegBase64`, `fitWithin` (browser only when called). Feedback: kinds, statuses, `similarFeedback`, `feedbackToMarkdown`, `githubIssueUrl`, `collectFeedbackContext`; error log: `installErrorLog`, `recentErrors` |
 | `firebase-app-kit/vite` | `firebaseAppKit()` plugin: defines `__APP_VERSION__`, `__APP_COMMIT__`, `__BUILD_TIME__` and `__FIREBASE_CONFIG__`, and can generate the offline service worker (`/sw.js`) |
-| `firebase-app-kit/deploy` | `deploy({ appName, projectId, changelog? })`: the `npm run deploy` flow, optionally updating a changelog |
+| `firebase-app-kit/deploy` | `deploy({ appName, projectId, changelog? })`: the `npm run deploy` flow, optionally updating a changelog. It also checks the kit's Firestore rules blocks (see [Feedback](#feedback)) |
+| `firebase-app-kit/rules-testing` | `feedbackRulesTests(...)`: the kit's Firestore rules tests, run by each app against its own `firestore.rules` |
+| `npx firebase-app-kit rules` | Adds or updates the kit's blocks in the app's `firestore.rules` |
 | `firebase-app-kit/globals` | Types for the constants above |
 | `firebase-app-kit/config/*` | Base `tsconfig` and `oxlint` configs |
 
@@ -147,6 +149,7 @@ All classes start with `kit-`. Theme them with these optional variables (fallbac
 | `--kit-warning`, `--kit-warning-soft` | Warning notices of the AI panel |
 | `--kit-radius` | Corner radius of fields, buttons and panels |
 | `--kit-sync-synced`, `--kit-sync-syncing`, `--kit-sync-offline`, `--kit-sync-error` | Sync icon color per state |
+| `--kit-badge`, `--kit-badge-contrast` | Count on the feedback icon and "Respuesta nueva" (default: `--kit-danger` / white) |
 
 For example `:root { --kit-accent: var(--accent); --kit-surface: var(--surface); }`: variables
 pointing at the app's own ones follow its dark mode too.
@@ -222,6 +225,63 @@ pdf.ensure(blockHeight)                               // new page if the block d
 pdf.footer('Mi App · Informe 2026')                   // on every page, with "Página N de M"
 const bytes = pdf.toBytes({ title: 'Informe 2026', producer: 'Mi App' })
 ```
+
+## Feedback
+
+Every app has a "Comentarios" (feedback) icon next to the sync status: users report what does not
+work ("Algo no funciona"), suggest improvements ("Propuesta de mejora") or anything else ("Otro"),
+with up to 3 screenshots and, if they agree, technical details. Everything lives in the app's own
+Firestore (no Cloud Functions, works offline):
+
+| Path | Who reads it | Contents |
+|------|--------------|----------|
+| `feedback/{id}` | every signed-in user (so nobody repeats a suggestion) | kind, text, status, author uid/email, dates, app version, admin's reply, version that solved it |
+| `feedback/{id}/screenshots/{0-2}` + `chunks/0000` | the author and admins | JPEG, one chunk each (kit chunk format) |
+| `feedback/{id}/private/diagnostics` | the author and admins | app version/commit, screen (`#/route`), browser, language, viewport, online, installed PWA, last 20 errors |
+| `admins/{uid}` | its own user | marks the app's admins; created by hand in the Firebase console |
+
+Only the author edits the kind and the text; admins set the status (Nuevo, En curso, Resuelto,
+Descartado), reply (the author gets a "new reply" count on the icon) and the version that solved
+it, and delete. Screenshots and technical details can only be added together with new feedback.
+
+### Adding it to an app
+
+```tsx
+// main.tsx: record recent errors from the start, so bug reports can include them.
+import { installErrorLog } from 'firebase-app-kit/utils'
+installErrorLog()
+
+// Header, right before <SyncStatus />:
+import { FeedbackButton } from 'firebase-app-kit/ui'
+<FeedbackButton db={db} user={user} appName="Labia" build={BUILD_INFO} githubRepo="luiz1919/labia-app" />
+```
+
+- `db` null (Firebase not configured) renders nothing. `user` is `{ uid, email }` (a Firebase `User`).
+- `githubRepo` (optional) gives admins a "Crear issue en GitHub" link that opens a new issue with
+  the title, the text, the facts and a label already filled in (no token: they submit it on GitHub).
+  Admins also have "Copiar como Markdown".
+- The icon is a 40 px `kit-icon-button` with a count badge: give it a column in the header layout.
+
+Firestore rules cannot import files, so the kit's block goes into the app's `firestore.rules`
+between two marker comments. Add it once, then keep it current after each kit upgrade:
+
+```bash
+npx firebase-app-kit rules feedback   # adds the block before the final match /{document=**}
+npx firebase-app-kit rules            # updates every kit block to the installed version
+```
+
+`deploy` (and `deploy --check`) fails while a block differs from the installed kit. Test it in the
+app's rules tests, against its own rules file:
+
+```js
+// tests/firestore.rules.test.mjs
+import { feedbackRulesTests } from 'firebase-app-kit/rules-testing'
+feedbackRulesTests({ environment: () => environment, assertSucceeds, assertFails, rules: readFileSync(rulesUrl, 'utf8') })
+```
+
+Then publish the rules (`firebase deploy --only firestore:rules`) before deploying the app, and
+create `admins/{your uid}` in the Firebase console (Firestore > Start collection `admins` >
+document id = the uid from Authentication > Users; any field).
 
 ## AI
 
@@ -347,7 +407,8 @@ or Firebase.
 
 ```bash
 npm install
-npm run check    # lint, types, tests and build to dist/
+npm run check       # lint, types, tests and build to dist/
+npm run test:rules  # the feedback rules in the Firestore emulator (port 8089; needs Java)
 ```
 
 To release a version:

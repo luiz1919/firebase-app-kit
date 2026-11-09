@@ -1,4 +1,6 @@
 import type { FirebaseWebConfig } from './config.ts';
+export { RULES_SNIPPETS, kitRulesSnippet, outdatedRulesSnippets, rulesSnippetProblem, syncRulesFile, updateRulesSnippets } from './rules.ts';
+export type { RulesSnippetName, RulesUpdate } from './rules.ts';
 export declare const VERSION_TYPES: readonly ['patch', 'minor', 'major'];
 export type VersionType = (typeof VERSION_TYPES)[number];
 export interface DeployOptions {

@@ -1,5 +1,5 @@
 /*
- * firebase-app-kit/ui: styles of AboutButton, LoginForm, SyncStatus and AiSettingsPanel.
+ * firebase-app-kit/ui: styles of AboutButton, LoginForm, SyncStatus, AiSettingsPanel and FeedbackButton.
  *
  * Import it once, before the app's own CSS (so the app can override any rule), and theme it with
  * these variables on :root (all optional; the fallbacks are TripPlanner's colors):
@@ -19,6 +19,7 @@
  *   --kit-radius          corner radius of fields, buttons and panels  (6px)
  *   --kit-sync-synced / --kit-sync-syncing / --kit-sync-offline / --kit-sync-error
  *                         color of the sync icon in each state
+ *   --kit-badge / --kit-badge-contrast   count on the feedback icon          (--kit-danger / #fff)
  */
 
 .kit-icon { flex-shrink: 0; }
@@ -101,3 +102,71 @@
 .kit-notice-warn { border-color: var(--kit-warning, #8a5a12); background: var(--kit-warning-soft, #fff4dc); color: var(--kit-warning, #8a5a12); }
 .kit-notice-error { border-color: var(--kit-danger, #a63d35); background: var(--kit-danger-soft, #fbeeea); color: var(--kit-danger, #a63d35); }
 select.kit-input { padding-block: 8px; }
+
+/* Feedback ("Comentarios"): header icon with a count, and a wider dialog with the list, the form and the detail. */
+.kit-feedback { position: relative; display: flex; }
+.kit-feedback-count { position: absolute; top: 2px; right: 0; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--kit-badge, var(--kit-danger, #a63d35)); color: var(--kit-badge-contrast, #fff); font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; pointer-events: none; }
+.kit-feedback-dialog { width: min(560px, calc(100% - 16px)); max-height: calc(100dvh - 16px); padding: 20px; }
+.kit-feedback-heading { align-items: center; margin-bottom: 16px; }
+.kit-feedback-heading h2 { flex: 1; min-width: 0; outline: none; }
+.kit-feedback-heading .kit-feedback-back { margin: -6px 0 -6px -8px; }
+.kit-feedback-heading .kit-icon-button { margin-top: -6px; margin-bottom: -6px; }
+.kit-feedback-banner { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 16px; }
+.kit-feedback-banner .kit-link-button { min-height: 32px; color: inherit; }
+.kit-feedback-view { display: flex; flex-direction: column; gap: 16px; }
+.kit-feedback-new { align-self: flex-start; }
+.kit-feedback-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.kit-feedback-filters .kit-chip { min-height: 38px; }
+.kit-chip.kit-chip-selected { border-color: var(--kit-accent, #17685b); background: var(--kit-accent, #17685b); color: var(--kit-accent-contrast, #fff); }
+.kit-chip.kit-chip-selected:hover { background: var(--kit-accent-hover, var(--kit-accent, #17685b)); }
+.kit-feedback-filter-count { opacity: .75; font-size: 12px; }
+.kit-feedback-list { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.kit-feedback-item { display: grid; gap: 6px; width: 100%; padding: 12px 14px; border: 1px solid var(--kit-border, #dce3df); border-radius: calc(var(--kit-radius, 6px) + 2px); background: var(--kit-surface, #fff); color: var(--kit-text, inherit); font: inherit; text-align: left; cursor: pointer; }
+.kit-feedback-item:hover { border-color: var(--kit-accent, #17685b); }
+.kit-feedback-item:focus-visible, .kit-feedback-shot-open:focus-visible { outline: 2px solid var(--kit-accent, #17685b); outline-offset: 2px; }
+.kit-feedback-item-title { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 15px; font-weight: 500; line-height: 1.4; overflow-wrap: anywhere; }
+.kit-feedback-meta { margin: 0; color: var(--kit-muted, #656f69); font-size: 13px; }
+.kit-feedback-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.kit-feedback-badge { display: inline-flex; align-items: center; padding: 2px 8px; border: 1px solid var(--kit-border, #dce3df); border-radius: 999px; color: var(--kit-muted, #656f69); font-size: 12px; font-weight: 500; white-space: nowrap; }
+.kit-feedback-kind-bug { border-color: var(--kit-danger-soft, #fbeeea); background: var(--kit-danger-soft, #fbeeea); color: var(--kit-danger, #a63d35); }
+.kit-feedback-kind-idea { border-color: var(--kit-accent-soft, #e1efea); background: var(--kit-accent-soft, #e1efea); color: var(--kit-accent, #17685b); }
+.kit-feedback-status-new { border-color: var(--kit-accent, #17685b); color: var(--kit-accent, #17685b); }
+.kit-feedback-status-in-progress { border-color: var(--kit-warning-soft, #fff4dc); background: var(--kit-warning-soft, #fff4dc); color: var(--kit-warning, #8a5a12); }
+.kit-feedback-status-done { border-color: var(--kit-success-soft, #e3f2ea); background: var(--kit-success-soft, #e3f2ea); color: var(--kit-success, #1f6f50); }
+.kit-feedback-status-declined { text-decoration: line-through; }
+.kit-feedback-unread { border-color: var(--kit-badge, var(--kit-danger, #a63d35)); background: var(--kit-badge, var(--kit-danger, #a63d35)); color: var(--kit-badge-contrast, #fff); }
+.kit-feedback-text { margin: 0; font-size: 15px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.kit-feedback-reply { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-left: 3px solid var(--kit-accent, #17685b); border-radius: 0 var(--kit-radius, 6px) var(--kit-radius, 6px) 0; background: var(--kit-accent-soft, #e1efea); }
+.kit-feedback-reply h3, .kit-feedback-section h3, .kit-feedback-admin h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.kit-feedback-section { display: flex; flex-direction: column; gap: 10px; }
+.kit-feedback-shots { display: flex; flex-wrap: wrap; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.kit-feedback-shot { position: relative; }
+.kit-feedback-shot img { display: block; width: 88px; height: 88px; border: 1px solid var(--kit-border, #dce3df); border-radius: var(--kit-radius, 6px); object-fit: cover; object-position: top; background: var(--kit-accent-soft, #e1efea); }
+.kit-feedback-shot-open { padding: 0; border: 0; border-radius: var(--kit-radius, 6px); background: none; cursor: zoom-in; }
+.kit-feedback-shot-open[aria-pressed='true'] img { border-color: var(--kit-accent, #17685b); box-shadow: 0 0 0 2px var(--kit-accent, #17685b); }
+.kit-feedback-shot-remove.kit-icon-button { position: absolute; top: -10px; right: -10px; width: 32px; height: 32px; flex-basis: 32px; border: 1px solid var(--kit-border, #dce3df); border-radius: 999px; background: var(--kit-surface, #fff); }
+.kit-feedback-zoom { margin: 0; }
+.kit-feedback-zoom img { display: block; max-width: 100%; max-height: 70dvh; margin: 0 auto; border: 1px solid var(--kit-border, #dce3df); border-radius: var(--kit-radius, 6px); }
+.kit-feedback-zoom figcaption { text-align: center; }
+.kit-feedback-form { display: flex; flex-direction: column; gap: 18px; }
+.kit-feedback-fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.kit-feedback-fieldset legend, .kit-feedback-label { display: block; margin-bottom: 8px; padding: 0; font-size: 14px; font-weight: 500; }
+.kit-feedback-kinds { display: flex; flex-wrap: wrap; gap: 8px; }
+.kit-feedback-kind { display: inline-flex; align-items: center; }
+.kit-feedback-kind:focus-within { outline: 2px solid var(--kit-accent, #17685b); outline-offset: 3px; }
+.kit-feedback-optional { color: var(--kit-muted, #656f69); font-weight: 400; }
+textarea.kit-input.kit-feedback-textarea { height: auto; min-height: 120px; line-height: 1.5; resize: vertical; }
+.kit-feedback-add-shot { align-self: flex-start; }
+.kit-feedback-similar { display: flex; flex-direction: column; gap: 4px; border-color: var(--kit-warning, #8a5a12); background: var(--kit-warning-soft, #fff4dc); }
+.kit-feedback-similar p { margin: 0; }
+.kit-feedback-similar ul { margin: 0; padding-left: 18px; }
+.kit-feedback-similar .kit-link-button { min-height: 36px; text-align: left; }
+.kit-feedback-diagnostics summary { min-height: 36px; color: var(--kit-accent, #17685b); font-size: 14px; cursor: pointer; }
+.kit-feedback-diagnostics dl { display: grid; gap: 6px; margin: 8px 0 12px; font-size: 13px; }
+.kit-feedback-diagnostics dl > div { display: grid; grid-template-columns: minmax(110px, 35%) 1fr; gap: 8px; }
+.kit-feedback-diagnostics dt { color: var(--kit-muted, #656f69); }
+.kit-feedback-diagnostics dd { margin: 0; overflow-wrap: anywhere; }
+.kit-feedback-errors { margin: 0; padding-left: 20px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.kit-feedback-admin { display: flex; flex-direction: column; gap: 14px; padding-top: 16px; border-top: 1px solid var(--kit-border, #dce3df); }
+.kit-feedback-admin .kit-actions a { text-decoration: none; }
+.kit-feedback-view .kit-link-button { display: inline-flex; align-items: center; gap: 6px; }
