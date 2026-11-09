@@ -20,7 +20,7 @@ app-specific data.
 ## Install in an app
 
 ```bash
-npm install github:luiz1919/firebase-app-kit#v0.10.1
+npm install github:luiz1919/firebase-app-kit#v0.11.0
 ```
 
 It is installed from GitHub, not from npm. `dist/` is committed so installing
@@ -114,15 +114,17 @@ const build = { version: __APP_VERSION__, commit: __APP_COMMIT__, buildTime: __B
 
 <SyncStatus state={syncState} error={error} details={{ offline: 'Text for this app' }} onDismissError={clearError} />
 // details: the app's explanation per state (missing ones use SYNC_DETAILS). In the error state the
-// panel shows `error`, or else details.error. onDismissError (optional) adds an "Entendido" button.
+// dialog shows `error`, or else details.error. onDismissError (optional) adds an "Entendido" button.
 ```
 
 - `AboutButton`: underlined "Acerca de" link that opens a modal `<dialog>` with the version, commit,
   build date ("Versión de desarrollo" in dev) and developer link. Escape, the close button or a tap
   on the backdrop close it.
-- `SyncStatus`: cloud icon button; its panel is positioned against the component's own wrapper
-  (`.kit-sync`, `position: relative`), right-aligned with the button. To anchor it to a wider
-  container instead, give that container `position: relative` and set `.kit-sync { position: static }`.
+- `SyncStatus`: cloud icon button (coloured by state) that opens a centred modal `<dialog>`, like
+  "Acerca de": the state with its icon as the title, the explanation, a close button and, in the
+  error state with `onDismissError`, "Entendido". It fits phones (at most 420 px wide, 16 px from
+  the edges) and follows the state while open. Escape, the close button or a tap on the backdrop
+  close it; a tap inside the dialog never does. Both dialogs share the `kit-dialog` classes.
 - `AiSettingsPanel`: `<AiSettingsPanel settings={aiSettings} actions={aiActions} />`, one card per
   AI provider: save, change or delete the key, "Probar conexión" (Test connection: lists the models
   without spending quota and suggests one), the model, and Claude's fallback checkbox. The app owns
@@ -136,10 +138,10 @@ All classes start with `kit-`. Theme them with these optional variables (fallbac
 | `--kit-accent-hover` | Primary button on hover |
 | `--kit-accent-contrast` | Text on the primary button |
 | `--kit-accent-soft` | Hover background of chips and icon buttons |
-| `--kit-text` | Text of the dialog and the sync panel (default: inherited) |
+| `--kit-text` | Text of the dialogs ("Acerca de" and the sync status; default: inherited) |
 | `--kit-muted` | Secondary text, icon buttons |
 | `--kit-border`, `--kit-input-border` | Borders; text field borders |
-| `--kit-surface` | Background of fields, chips, dialog and panel |
+| `--kit-surface` | Background of fields, chips and dialogs |
 | `--kit-danger`, `--kit-danger-soft` | Error text/border and background |
 | `--kit-success`, `--kit-success-soft` | "Ok" notices and the free-tier badge of the AI panel |
 | `--kit-warning`, `--kit-warning-soft` | Warning notices of the AI panel |

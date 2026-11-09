@@ -7,11 +7,11 @@
  *   --kit-accent-hover    primary button on hover                      (--kit-accent)
  *   --kit-accent-contrast text on the primary button                   (#fff)
  *   --kit-accent-soft     hover background of chips and icon buttons   (#e1efea)
- *   --kit-text            text of the dialog and the panel             (inherit)
+ *   --kit-text            text of the dialogs                          (inherit)
  *   --kit-muted           secondary text and icon buttons              (#656f69)
  *   --kit-border          borders                                      (#dce3df)
  *   --kit-input-border    text field borders                           (--kit-border)
- *   --kit-surface         background of fields, chips, dialog, panel   (#fff)
+ *   --kit-surface         background of fields, chips and dialogs      (#fff)
  *   --kit-danger          error text and border                        (#a63d35)
  *   --kit-danger-soft     error background                             (#fbeeea)
  *   --kit-success / --kit-success-soft   "ok" notices and the free-tier badge  (#1f6f50 / #e3f2ea)
@@ -37,13 +37,15 @@
 
 .kit-error { margin: 0; padding: 14px 16px; border-left: 3px solid var(--kit-danger, #a63d35); background: var(--kit-danger-soft, #fbeeea); color: var(--kit-danger, #a63d35); font-size: 14px; overflow-wrap: anywhere; }
 
+/* Modal dialogs ("Acerca de" and the sync status): centred over a backdrop, with a close button. */
+.kit-dialog { width: min(420px, calc(100% - 32px)); max-height: calc(100dvh - 40px); margin: auto; padding: 24px; border: 1px solid var(--kit-border, #dce3df); border-radius: calc(var(--kit-radius, 6px) + 2px); background: var(--kit-surface, #fff); color: var(--kit-text, inherit); text-align: left; overflow: auto; overflow-wrap: anywhere; }
+.kit-dialog::backdrop { background: rgb(0 0 0 / 40%); }
+.kit-dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+.kit-dialog-heading h2 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 20px; font-weight: 600; line-height: 1.4; }
+.kit-dialog-heading .kit-icon-button { margin-top: -6px; margin-right: -6px; }
+
 /* "Acerca de" (About) */
 .kit-about-button { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 4px; border: 0; background: none; color: var(--kit-accent, #17685b); font: inherit; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
-.kit-about-dialog { width: min(420px, calc(100% - 32px)); max-height: calc(100dvh - 40px); margin: auto; padding: 24px; border: 1px solid var(--kit-border, #dce3df); border-radius: calc(var(--kit-radius, 6px) + 2px); background: var(--kit-surface, #fff); color: var(--kit-text, inherit); overflow: auto; }
-.kit-about-dialog::backdrop { background: rgb(0 0 0 / 40%); }
-.kit-about-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
-.kit-about-heading h2 { margin: 0; font-size: 20px; font-weight: 600; line-height: 1.4; }
-.kit-about-heading .kit-icon-button { margin-top: -6px; margin-right: -6px; }
 .kit-about-list { margin: 0; }
 .kit-about-list dt { color: var(--kit-muted, #656f69); font-size: 13px; }
 .kit-about-list dd { margin: 5px 0 20px; font-size: 15px; font-weight: 500; overflow-wrap: anywhere; }
@@ -64,16 +66,16 @@
 .kit-login-form .kit-password-field .kit-input { padding-right: 52px; }
 .kit-password-field .kit-icon-button { position: absolute; right: 3px; top: 3px; }
 
-/* Sync status: the panel is positioned against .kit-sync. */
-.kit-sync { position: relative; display: flex; }
-.kit-sync-button.kit-sync-synced { color: var(--kit-sync-synced, var(--kit-accent, #17685b)); }
-.kit-sync-button.kit-sync-syncing { color: var(--kit-sync-syncing, #a66720); }
-.kit-sync-button.kit-sync-offline { color: var(--kit-sync-offline, var(--kit-muted, #656f69)); }
-.kit-sync-button.kit-sync-error { color: var(--kit-sync-error, var(--kit-danger, #a63d35)); }
-.kit-sync-details { position: absolute; right: 0; top: calc(100% + 8px); z-index: 20; display: flex; flex-direction: column; align-items: flex-start; gap: 7px; width: min(300px, calc(100vw - 40px)); padding: 16px; border: 1px solid var(--kit-border, #dce3df); border-radius: var(--kit-radius, 6px); background: var(--kit-surface, #fff); box-shadow: 0 6px 20px rgb(0 0 0 / 12%); color: var(--kit-text, inherit); font-size: 13px; text-align: left; overflow-wrap: anywhere; }
-.kit-sync-details strong { font-size: 14px; }
-.kit-sync-details p { margin: 0; line-height: 1.5; color: var(--kit-muted, #656f69); }
-.kit-sync-details .kit-secondary-button { margin-top: 5px; }
+/* Sync status: the cloud button and its dialog (the icon in the dialog's title has the state's colour). */
+.kit-sync { display: flex; }
+:is(.kit-sync-button, .kit-sync-icon).kit-sync-synced { color: var(--kit-sync-synced, var(--kit-accent, #17685b)); }
+:is(.kit-sync-button, .kit-sync-icon).kit-sync-syncing { color: var(--kit-sync-syncing, #a66720); }
+:is(.kit-sync-button, .kit-sync-icon).kit-sync-offline { color: var(--kit-sync-offline, var(--kit-muted, #656f69)); }
+:is(.kit-sync-button, .kit-sync-icon).kit-sync-error { color: var(--kit-sync-error, var(--kit-danger, #a63d35)); }
+.kit-sync-icon { display: inline-flex; }
+.kit-sync-dialog .kit-dialog-heading { margin-bottom: 12px; }
+.kit-sync-text { margin: 0; color: var(--kit-muted, #656f69); font-size: 15px; line-height: 1.5; }
+.kit-sync-dialog .kit-secondary-button { margin-top: 20px; }
 
 /* AI settings panel */
 .kit-ai-list { display: flex; flex-direction: column; gap: 14px; margin: 0; padding: 0; list-style: none; }
