@@ -10,6 +10,9 @@ export interface FeedbackAuthor {
 }
 export interface FeedbackDraft {
     kind: FeedbackKind;
+    /** Short title (required). */
+    title: string;
+    /** Description (optional). */
     text: string;
     /** Up to FEEDBACK_LIMITS.screenshots JPEGs of one chunk each (see imageToJpeg). */
     screenshots: readonly JpegImage[];
@@ -17,7 +20,10 @@ export interface FeedbackDraft {
     diagnostics: FeedbackDiagnostics | null;
 }
 /** Problem with a draft (in Spanish, for the user), or null if it can be sent. */
-export declare function feedbackDraftProblem(value: string, screenshotCount?: number): string | null;
+export declare function feedbackDraftProblem(draft: {
+    title: string;
+    text: string;
+}, screenshotCount?: number): string | null;
 /**
  * Sends new feedback, its screenshots and its technical details in one batch (all or nothing).
  * Returns the new id at once; `committed` settles when the server confirms (later, if offline).
@@ -34,9 +40,10 @@ export declare function watchFeedbackAdmin(db: Firestore, uid: string, onChange:
 export declare function watchUnreadFeedbackReplies(db: Firestore, uid: string, onCount: (count: number) => void): Unsubscribe;
 /** Follows how many items are waiting for an admin (status "new"). */
 export declare function watchNewFeedbackCount(db: Firestore, onCount: (count: number) => void): Unsubscribe;
-/** The author changes the kind and the text. */
+/** The author changes the kind, the title and the description (feedback without a title gets one). */
 export declare function editFeedback(db: Firestore, id: string, changes: {
     kind: FeedbackKind;
+    title: string;
     text: string;
 }): Promise<void>;
 /** The author has seen the reply. */

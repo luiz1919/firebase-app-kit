@@ -22,7 +22,7 @@ no screens or app-specific data.
 ## Install in an app
 
 ```bash
-npm install github:luiz1919/firebase-app-kit#v0.11.0
+npm install github:luiz1919/firebase-app-kit#v0.13.0
 ```
 
 It is installed from GitHub, not from npm. `dist/` is committed so installing
@@ -230,19 +230,23 @@ const bytes = pdf.toBytes({ title: 'Informe 2026', producer: 'Mi App' })
 
 Every app has a "Comentarios" (feedback) icon next to the sync status: users report what does not
 work ("Algo no funciona"), suggest improvements ("Propuesta de mejora") or anything else ("Otro"),
-with up to 3 screenshots and, if they agree, technical details. Everything lives in the app's own
-Firestore (no Cloud Functions, works offline):
+with up to 3 screenshots and, if they agree, technical details. Each one has a short title (what
+the list shows, so reviewing them is quick) and an optional description, shown with the title when
+the item is opened. Everything lives in the app's own Firestore (no Cloud Functions, works
+offline):
 
 | Path | Who reads it | Contents |
 |------|--------------|----------|
-| `feedback/{id}` | every signed-in user (so nobody repeats a suggestion) | kind, text, status, author uid/email, dates, app version, admin's reply, version that solved it |
+| `feedback/{id}` | every signed-in user (so nobody repeats a suggestion) | kind, title (1 to 120 characters), text (the description, up to 4000, may be empty), status, author uid/email, dates, app version, admin's reply, version that solved it |
 | `feedback/{id}/screenshots/{0-2}` + `chunks/0000` | the author and admins | JPEG, one chunk each (kit chunk format) |
 | `feedback/{id}/private/diagnostics` | the author and admins | app version/commit, screen (`#/route`), browser, language, viewport, online, installed PWA, last 20 errors |
 | `admins/{uid}` | its own user | marks the app's admins; created by hand in the Firebase console |
 
-Only the author edits the kind and the text; admins set the status (Nuevo, En curso, Resuelto,
+Only the author edits the kind, the title and the description; admins set the status (Nuevo, En curso, Resuelto,
 Descartado), reply (the author gets a "new reply" count on the icon) and the version that solved
 it, and delete. Screenshots and technical details can only be added together with new feedback.
+Feedback sent with v0.12.0 has no title: the app shows its first line as the title and the rest as
+the description, and its author's next edit saves them that way.
 
 ### Adding it to an app
 

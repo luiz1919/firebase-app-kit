@@ -8,7 +8,27 @@ Versions up to v0.11.0 were written afterwards from the tags, the commits and th
 
 ## Unreleased
 
-_Nothing yet._
+## [v0.13.0] - 2026-11-10
+
+### Changed
+
+- Feedback has a title and a description: the form asks for a short title (required, up to 120
+  characters: "¿Qué falla?", "¿Qué propones?") and an optional description; the list shows only the
+  titles and opening an item shows its title and description. Similar feedback is looked up in
+  both. `feedback/{id}` gains `title`; `text` (the description) may now be empty. Markdown reports
+  and GitHub issues use the title.
+- Feedback sent with v0.12.0 (no title) shows its first line as the title and the rest as the
+  description (`splitUntitledFeedback`); it can still be answered and marked as read, and its
+  author's next edit saves the title.
+- `feedbackDraftProblem` takes `{ title, text }`; `FeedbackDraft` and `editFeedback` changes have a
+  `title`. New in utils: `cleanFeedbackTitle`, `splitUntitledFeedback`, `FEEDBACK_LIMITS.title`.
+
+### Upgrade
+
+- `npm install github:luiz1919/firebase-app-kit#v0.13.0`, then `npx firebase-app-kit rules` to
+  update the feedback block in `firestore.rules` (the deploy fails while it is outdated), run the
+  rules tests and publish the rules (`firebase deploy --only firestore:rules`) before deploying:
+  the new form writes `title`, which the v0.12.0 rules reject.
 
 ## [v0.12.0] - 2026-11-09
 

@@ -2,7 +2,7 @@
     // In-app feedback ("Comentarios"), copied from firebase-app-kit/rules/feedback.rules. Do not
     // edit it here: update it with `npx firebase-app-kit rules` (the deploy fails if it is outdated).
     // Every signed-in user reads the feedback (so nobody repeats a suggestion); only its author
-    // edits the kind and the text; admins (a document admins/{uid}, created by hand in the Firebase
+    // edits the kind, the title and the description (text); admins (a document admins/{uid}, created by hand in the Firebase
     // console) set the status, the reply and the version, and delete. Screenshots and technical
     // details only travel with new feedback, and only its author and admins can read them.
     function feedbackSignedIn() {
@@ -26,13 +26,15 @@
     function feedbackString(value, min, max) {
       return value is string && value.size() >= min && value.size() <= max;
     }
+    // A title (feedback from v0.12.0 has none until its author edits it) and an optional description.
     function feedbackContent(data) {
-      return data.kind in ['bug', 'idea', 'other'] && feedbackString(data.text, 1, 4000);
+      return data.kind in ['bug', 'idea', 'other'] && feedbackString(data.title, 1, 120)
+        && feedbackString(data.text, 0, 4000);
     }
     function feedbackNew(data) {
-      return data.keys().hasOnly(['kind', 'text', 'status', 'createdBy', 'createdByEmail', 'createdAt', 'editedAt',
+      return data.keys().hasOnly(['kind', 'title', 'text', 'status', 'createdBy', 'createdByEmail', 'createdAt', 'editedAt',
           'appVersion', 'screenshotCount', 'hasDiagnostics', 'reply', 'repliedAt', 'replyRead', 'resolvedVersion'])
-        && data.keys().hasAll(['kind', 'text', 'status', 'createdBy', 'createdByEmail', 'createdAt', 'editedAt',
+        && data.keys().hasAll(['kind', 'title', 'text', 'status', 'createdBy', 'createdByEmail', 'createdAt', 'editedAt',
           'appVersion', 'screenshotCount', 'hasDiagnostics', 'reply', 'repliedAt', 'replyRead', 'resolvedVersion'])
         && feedbackContent(data)
         && data.status == 'new'
@@ -46,13 +48,14 @@
         && data.reply == '' && data.repliedAt == null && data.replyRead == true
         && data.resolvedVersion == '';
     }
-    // The author edits the kind and the text (stamping editedAt) and marks the reply as read.
+    // The author edits the kind, the title and the description (stamping editedAt) and marks the
+    // reply as read (also on feedback without a title).
     function feedbackAuthorEdit() {
       let changed = request.resource.data.diff(resource.data).affectedKeys();
       return resource.data.createdBy == request.auth.uid
-        && changed.hasOnly(['kind', 'text', 'editedAt', 'replyRead'])
-        && feedbackContent(request.resource.data)
-        && (!changed.hasAny(['kind', 'text', 'editedAt']) || request.resource.data.editedAt == request.time)
+        && changed.hasOnly(['kind', 'title', 'text', 'editedAt', 'replyRead'])
+        && (!changed.hasAny(['kind', 'title', 'text', 'editedAt']) || feedbackContent(request.resource.data))
+        && (!changed.hasAny(['kind', 'title', 'text', 'editedAt']) || request.resource.data.editedAt == request.time)
         && (!changed.hasAny(['replyRead']) || request.resource.data.replyRead == true);
     }
     // Admins set the status, the reply (stamping repliedAt, or null when it is cleared) and the version.

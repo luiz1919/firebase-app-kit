@@ -10,7 +10,7 @@ interface FeedbackFormProps {
     build: BuildInfo;
     draft: DraftState;
     setDraft: Dispatch<SetStateAction<DraftState>>;
-    /** The item being edited (only kind and text), or null for new feedback. */
+    /** The item being edited (only kind, title and description), or null for new feedback. */
     editing: FeedbackItem | null;
     items: FeedbackItem[];
     onOpen: (id: string) => void;

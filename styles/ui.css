@@ -135,6 +135,7 @@ select.kit-input { padding-block: 8px; }
 .kit-feedback-status-done { border-color: var(--kit-success-soft, #e3f2ea); background: var(--kit-success-soft, #e3f2ea); color: var(--kit-success, #1f6f50); }
 .kit-feedback-status-declined { text-decoration: line-through; }
 .kit-feedback-unread { border-color: var(--kit-badge, var(--kit-danger, #a63d35)); background: var(--kit-badge, var(--kit-danger, #a63d35)); color: var(--kit-badge-contrast, #fff); }
+.kit-feedback-title { margin: 0; font-size: 18px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
 .kit-feedback-text { margin: 0; font-size: 15px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 .kit-feedback-reply { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-left: 3px solid var(--kit-accent, #17685b); border-radius: 0 var(--kit-radius, 6px) var(--kit-radius, 6px) 0; background: var(--kit-accent-soft, #e1efea); }
 .kit-feedback-reply h3, .kit-feedback-section h3, .kit-feedback-admin h3 { margin: 0; font-size: 15px; font-weight: 600; }

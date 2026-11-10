@@ -12,6 +12,7 @@ interface DraftScreenshot {
 /** The new feedback being written; kept by FeedbackButton so it survives closing the dialog. */
 export interface DraftState {
     kind: FeedbackKind;
+    title: string;
     text: string;
     screenshots: DraftScreenshot[];
     includeDiagnostics: boolean;

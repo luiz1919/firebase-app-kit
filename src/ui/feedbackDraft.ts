@@ -15,6 +15,7 @@ interface DraftScreenshot {
 /** The new feedback being written; kept by FeedbackButton so it survives closing the dialog. */
 export interface DraftState {
   kind: FeedbackKind
+  title: string
   text: string
   screenshots: DraftScreenshot[]
   includeDiagnostics: boolean
@@ -22,4 +23,4 @@ export interface DraftState {
   diagnosticsChosen: boolean
 }
 
-export const EMPTY_DRAFT: DraftState = { kind: 'bug', text: '', screenshots: [], includeDiagnostics: true, diagnosticsChosen: false }
+export const EMPTY_DRAFT: DraftState = { kind: 'bug', title: '', text: '', screenshots: [], includeDiagnostics: true, diagnosticsChosen: false }

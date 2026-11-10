@@ -5,7 +5,7 @@ import { editFeedback, feedbackDraftProblem, submitFeedback } from '../feedback.
 import type { BuildInfo } from '../utils/build.ts'
 import { recentErrors } from '../utils/errorLog.ts'
 import {
-  FEEDBACK_KINDS, FEEDBACK_KIND_LABELS, FEEDBACK_LIMITS, collectFeedbackContext, feedbackAuthorName, feedbackTitle, similarFeedback,
+  FEEDBACK_KINDS, FEEDBACK_KIND_LABELS, FEEDBACK_LIMITS, collectFeedbackContext, feedbackAuthorName, similarFeedback,
 } from '../utils/feedback.ts'
 import type { FeedbackItem, FeedbackKind } from '../utils/feedback.ts'
 import { imageToJpeg } from '../utils/image.ts'
@@ -20,7 +20,14 @@ const SCREENSHOT_SIDE = 1600
 const PLACEHOLDERS: Record<FeedbackKind, string> = {
   bug: 'Qué estabas haciendo, qué esperabas que pasara y qué ha pasado.',
   idea: 'Qué te gustaría poder hacer y para qué te vendría bien.',
-  other: 'Escribe tu comentario.',
+  other: 'Los detalles de tu comentario.',
+}
+
+const TITLE_LABELS: Record<FeedbackKind, string> = { bug: '¿Qué falla?', idea: '¿Qué propones?', other: 'Título' }
+const TITLE_PLACEHOLDERS: Record<FeedbackKind, string> = {
+  bug: 'En pocas palabras: «La lista no se guarda sin conexión»',
+  idea: 'En pocas palabras: «Modo oscuro»',
+  other: 'En pocas palabras',
 }
 
 interface FeedbackFormProps {
@@ -30,7 +37,7 @@ interface FeedbackFormProps {
   build: BuildInfo
   draft: DraftState
   setDraft: Dispatch<SetStateAction<DraftState>>
-  /** The item being edited (only kind and text), or null for new feedback. */
+  /** The item being edited (only kind, title and description), or null for new feedback. */
   editing: FeedbackItem | null
   items: FeedbackItem[]
   onOpen: (id: string) => void
@@ -39,19 +46,25 @@ interface FeedbackFormProps {
 }
 
 export function FeedbackForm({ db, user, appName, build, draft, setDraft, editing, items, onOpen, onDone, onWriteError }: FeedbackFormProps) {
-  const [edit, setEdit] = useState(() => ({ kind: editing?.kind ?? 'bug', text: editing?.text ?? '' }))
+  const [edit, setEdit] = useState(() => ({ kind: editing?.kind ?? 'bug', title: editing?.title ?? '', text: editing?.text ?? '' }))
   const [error, setError] = useState('')
   const [processing, setProcessing] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const id = useId()
   const kind = editing ? edit.kind : draft.kind
+  const title = editing ? edit.title : draft.title
   const text = editing ? edit.text : draft.text
-  const similar = editing ? [] : similarFeedback(text, items)
+  const similar = editing ? [] : similarFeedback(`${title}\n${text}`, items)
   const room = FEEDBACK_LIMITS.screenshots - draft.screenshots.length
 
   function setKind(next: FeedbackKind) {
     if (editing) setEdit((current) => ({ ...current, kind: next }))
     else setDraft((current) => ({ ...current, kind: next, includeDiagnostics: current.diagnosticsChosen ? current.includeDiagnostics : next === 'bug' }))
+  }
+
+  function setTitle(next: string) {
+    if (editing) setEdit((current) => ({ ...current, title: next }))
+    else setDraft((current) => ({ ...current, title: next }))
   }
 
   function setText(next: string) {
@@ -90,7 +103,7 @@ export function FeedbackForm({ db, user, appName, build, draft, setDraft, editin
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const problem = feedbackDraftProblem(text, editing ? 0 : draft.screenshots.length)
+    const problem = feedbackDraftProblem({ title, text }, editing ? 0 : draft.screenshots.length)
     if (problem) {
       setError(problem)
       return
@@ -103,7 +116,7 @@ export function FeedbackForm({ db, user, appName, build, draft, setDraft, editin
         return
       }
       const diagnostics = draft.includeDiagnostics ? { context: collectFeedbackContext(build), errors: recentErrors() } : null
-      const sent = submitFeedback(db, user, { kind, text, screenshots: draft.screenshots.map((entry) => entry.image), diagnostics }, build.version)
+      const sent = submitFeedback(db, user, { kind, title, text, screenshots: draft.screenshots.map((entry) => entry.image), diagnostics }, build.version)
       sent.committed.catch((sendError: unknown) => onWriteError(writeErrorMessage(sendError, 'enviar el comentario')))
       for (const entry of draft.screenshots) URL.revokeObjectURL(entry.url)
       setDraft(EMPTY_DRAFT)
@@ -128,7 +141,20 @@ export function FeedbackForm({ db, user, appName, build, draft, setDraft, editin
       </fieldset>
 
       <div className="kit-field">
-        <label htmlFor={`${id}-text`}>{kind === 'idea' ? '¿Qué propones?' : kind === 'bug' ? '¿Qué ha pasado?' : 'Tu comentario'}</label>
+        <label htmlFor={`${id}-title`}>{TITLE_LABELS[kind]}</label>
+        <input
+          id={`${id}-title`}
+          className="kit-input"
+          value={title}
+          maxLength={FEEDBACK_LIMITS.title}
+          placeholder={TITLE_PLACEHOLDERS[kind]}
+          autoComplete="off"
+          onChange={(event) => setTitle(event.target.value)}
+        />
+      </div>
+
+      <div className="kit-field">
+        <label htmlFor={`${id}-text`}>Descripción <span className="kit-feedback-optional">(opcional)</span></label>
         <textarea
           id={`${id}-text`}
           className="kit-input kit-feedback-textarea"
@@ -146,7 +172,7 @@ export function FeedbackForm({ db, user, appName, build, draft, setDraft, editin
           <p>¿Es alguno de estos? Si ya está, no hace falta repetirlo.</p>
           <ul>
             {similar.map((item) => (
-              <li key={item.id}><button className="kit-link-button" type="button" onClick={() => onOpen(item.id)}>{feedbackTitle(item.text, 70)}</button></li>
+              <li key={item.id}><button className="kit-link-button" type="button" onClick={() => onOpen(item.id)}>{item.title}</button></li>
             ))}
           </ul>
         </div>
@@ -189,7 +215,7 @@ export function FeedbackForm({ db, user, appName, build, draft, setDraft, editin
       )}
 
       <p className="kit-hint">
-        Todos los usuarios de {appName} verán el texto y tu nombre ({feedbackAuthorName(user.email ?? '')}).
+        Todos los usuarios de {appName} verán el título, la descripción y tu nombre ({feedbackAuthorName(user.email ?? '')}).
         {!editing && ' Las capturas y los datos técnicos solo los verán tú y el administrador.'}
       </p>
 

@@ -4,7 +4,7 @@ import type { Firestore } from 'firebase/firestore'
 import { useFeedbackAdmin, useFeedbackBadge, useFeedbackList } from '../react/feedback.ts'
 import type { BuildInfo } from '../utils/build.ts'
 import { installErrorLog } from '../utils/errorLog.ts'
-import { feedbackAuthorName, feedbackTitle, formatFeedbackDate, hasUnreadReply, isOpenFeedback } from '../utils/feedback.ts'
+import { feedbackAuthorName, formatFeedbackDate, hasUnreadReply, isOpenFeedback } from '../utils/feedback.ts'
 import type { FeedbackItem } from '../utils/feedback.ts'
 import { FeedbackBadges } from './FeedbackBadges.tsx'
 import { FeedbackDetail } from './FeedbackDetail.tsx'
@@ -242,7 +242,7 @@ function FeedbackRow({ item, unread, onOpen }: { item: FeedbackItem; unread: boo
   return (
     <button className="kit-feedback-item" type="button" onClick={() => onOpen(item.id)}>
       <FeedbackBadges item={item} unread={unread} />
-      <span className="kit-feedback-item-title">{feedbackTitle(item.text)}</span>
+      <span className="kit-feedback-item-title">{item.title}</span>
       <span className="kit-feedback-meta">
         {feedbackAuthorName(item.createdByEmail)} · {item.sending ? 'Enviando…' : formatFeedbackDate(item.createdAt)}
         {item.reply ? ' · Con respuesta' : ''}

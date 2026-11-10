@@ -7,7 +7,7 @@ import {
 } from 'firebase/firestore'
 import type { DocumentReference, Firestore, Unsubscribe } from 'firebase/firestore'
 import { readChunkedFile, stageChunkedFile, stageChunkedFileDelete } from './chunks.ts'
-import { FEEDBACK_LIMITS, cleanFeedbackText, feedbackFromData, sortFeedback } from './utils/feedback.ts'
+import { FEEDBACK_LIMITS, cleanFeedbackText, cleanFeedbackTitle, feedbackFromData, sortFeedback } from './utils/feedback.ts'
 import type { FeedbackDiagnostics, FeedbackItem, FeedbackKind, FeedbackStatus } from './utils/feedback.ts'
 import type { JpegImage } from './utils/image.ts'
 
@@ -22,6 +22,9 @@ export interface FeedbackAuthor {
 
 export interface FeedbackDraft {
   kind: FeedbackKind
+  /** Short title (required). */
+  title: string
+  /** Description (optional). */
   text: string
   /** Up to FEEDBACK_LIMITS.screenshots JPEGs of one chunk each (see imageToJpeg). */
   screenshots: readonly JpegImage[]
@@ -34,10 +37,11 @@ const screenshotRef = (parent: DocumentReference, index: number) => doc(parent, 
 const diagnosticsRef = (parent: DocumentReference) => doc(parent, 'private', 'diagnostics')
 
 /** Problem with a draft (in Spanish, for the user), or null if it can be sent. */
-export function feedbackDraftProblem(value: string, screenshotCount = 0): string | null {
-  const text = cleanFeedbackText(value)
-  if (!text) return 'Escribe tu comentario.'
-  if (text.length > FEEDBACK_LIMITS.text) return `El comentario es demasiado largo (máximo ${FEEDBACK_LIMITS.text} caracteres).`
+export function feedbackDraftProblem(draft: { title: string; text: string }, screenshotCount = 0): string | null {
+  const title = cleanFeedbackTitle(draft.title)
+  if (!title) return 'Escribe un título.'
+  if (title.length > FEEDBACK_LIMITS.title) return `El título es demasiado largo (máximo ${FEEDBACK_LIMITS.title} caracteres).`
+  if (cleanFeedbackText(draft.text).length > FEEDBACK_LIMITS.text) return `La descripción es demasiado larga (máximo ${FEEDBACK_LIMITS.text} caracteres).`
   if (screenshotCount > FEEDBACK_LIMITS.screenshots) return `Puedes adjuntar hasta ${FEEDBACK_LIMITS.screenshots} capturas.`
   return null
 }
@@ -47,12 +51,13 @@ export function feedbackDraftProblem(value: string, screenshotCount = 0): string
  * Returns the new id at once; `committed` settles when the server confirms (later, if offline).
  */
 export function submitFeedback(db: Firestore, author: FeedbackAuthor, draft: FeedbackDraft, appVersion: string): { id: string; committed: Promise<void> } {
-  const problem = feedbackDraftProblem(draft.text, draft.screenshots.length)
+  const problem = feedbackDraftProblem(draft, draft.screenshots.length)
   if (problem) throw new Error(problem)
   const parent = doc(collection(db, FEEDBACK_COLLECTION))
   const batch = writeBatch(db)
   batch.set(parent, {
     kind: draft.kind,
+    title: cleanFeedbackTitle(draft.title),
     text: cleanFeedbackText(draft.text),
     status: 'new',
     createdBy: author.uid,
@@ -109,11 +114,13 @@ export function watchNewFeedbackCount(db: Firestore, onCount: (count: number) =>
   return onSnapshot(waiting, (snapshot) => onCount(snapshot.size), () => onCount(0))
 }
 
-/** The author changes the kind and the text. */
-export function editFeedback(db: Firestore, id: string, changes: { kind: FeedbackKind; text: string }): Promise<void> {
-  const problem = feedbackDraftProblem(changes.text)
+/** The author changes the kind, the title and the description (feedback without a title gets one). */
+export function editFeedback(db: Firestore, id: string, changes: { kind: FeedbackKind; title: string; text: string }): Promise<void> {
+  const problem = feedbackDraftProblem(changes)
   if (problem) return Promise.reject(new Error(problem))
-  return updateDoc(feedbackRef(db, id), { kind: changes.kind, text: cleanFeedbackText(changes.text), editedAt: serverTimestamp() })
+  return updateDoc(feedbackRef(db, id), {
+    kind: changes.kind, title: cleanFeedbackTitle(changes.title), text: cleanFeedbackText(changes.text), editedAt: serverTimestamp(),
+  })
 }
 
 /** The author has seen the reply. */

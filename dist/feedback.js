@@ -4,7 +4,7 @@
 // when the server confirms, so the UI should not wait for them (show errors when they reject).
 import { collection, doc, getDoc, limit, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where, writeBatch, } from 'firebase/firestore';
 import { readChunkedFile, stageChunkedFile, stageChunkedFileDelete } from './chunks.js';
-import { FEEDBACK_LIMITS, cleanFeedbackText, feedbackFromData, sortFeedback } from './utils/feedback.js';
+import { FEEDBACK_LIMITS, cleanFeedbackText, cleanFeedbackTitle, feedbackFromData, sortFeedback } from './utils/feedback.js';
 export const FEEDBACK_COLLECTION = 'feedback';
 /** Most recent feedback items listed (plenty for apps with a handful of users). */
 export const FEEDBACK_LIST_LIMIT = 300;
@@ -12,12 +12,14 @@ const feedbackRef = (db, id) => doc(db, FEEDBACK_COLLECTION, id);
 const screenshotRef = (parent, index) => doc(parent, 'screenshots', String(index));
 const diagnosticsRef = (parent) => doc(parent, 'private', 'diagnostics');
 /** Problem with a draft (in Spanish, for the user), or null if it can be sent. */
-export function feedbackDraftProblem(value, screenshotCount = 0) {
-    const text = cleanFeedbackText(value);
-    if (!text)
-        return 'Escribe tu comentario.';
-    if (text.length > FEEDBACK_LIMITS.text)
-        return `El comentario es demasiado largo (máximo ${FEEDBACK_LIMITS.text} caracteres).`;
+export function feedbackDraftProblem(draft, screenshotCount = 0) {
+    const title = cleanFeedbackTitle(draft.title);
+    if (!title)
+        return 'Escribe un título.';
+    if (title.length > FEEDBACK_LIMITS.title)
+        return `El título es demasiado largo (máximo ${FEEDBACK_LIMITS.title} caracteres).`;
+    if (cleanFeedbackText(draft.text).length > FEEDBACK_LIMITS.text)
+        return `La descripción es demasiado larga (máximo ${FEEDBACK_LIMITS.text} caracteres).`;
     if (screenshotCount > FEEDBACK_LIMITS.screenshots)
         return `Puedes adjuntar hasta ${FEEDBACK_LIMITS.screenshots} capturas.`;
     return null;
@@ -27,13 +29,14 @@ export function feedbackDraftProblem(value, screenshotCount = 0) {
  * Returns the new id at once; `committed` settles when the server confirms (later, if offline).
  */
 export function submitFeedback(db, author, draft, appVersion) {
-    const problem = feedbackDraftProblem(draft.text, draft.screenshots.length);
+    const problem = feedbackDraftProblem(draft, draft.screenshots.length);
     if (problem)
         throw new Error(problem);
     const parent = doc(collection(db, FEEDBACK_COLLECTION));
     const batch = writeBatch(db);
     batch.set(parent, {
         kind: draft.kind,
+        title: cleanFeedbackTitle(draft.title),
         text: cleanFeedbackText(draft.text),
         status: 'new',
         createdBy: author.uid,
@@ -81,12 +84,14 @@ export function watchNewFeedbackCount(db, onCount) {
     const waiting = query(collection(db, FEEDBACK_COLLECTION), where('status', '==', 'new'));
     return onSnapshot(waiting, (snapshot) => onCount(snapshot.size), () => onCount(0));
 }
-/** The author changes the kind and the text. */
+/** The author changes the kind, the title and the description (feedback without a title gets one). */
 export function editFeedback(db, id, changes) {
-    const problem = feedbackDraftProblem(changes.text);
+    const problem = feedbackDraftProblem(changes);
     if (problem)
         return Promise.reject(new Error(problem));
-    return updateDoc(feedbackRef(db, id), { kind: changes.kind, text: cleanFeedbackText(changes.text), editedAt: serverTimestamp() });
+    return updateDoc(feedbackRef(db, id), {
+        kind: changes.kind, title: cleanFeedbackTitle(changes.title), text: cleanFeedbackText(changes.text), editedAt: serverTimestamp(),
+    });
 }
 /** The author has seen the reply. */
 export const markFeedbackReplyRead = (db, id) => updateDoc(feedbackRef(db, id), { replyRead: true });

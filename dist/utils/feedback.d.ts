@@ -11,6 +11,7 @@ export type FeedbackStatus = (typeof FEEDBACK_STATUSES)[number];
 export declare const FEEDBACK_STATUS_LABELS: Readonly<Record<FeedbackStatus, string>>;
 /** Limits shared with the Firestore rules. */
 export declare const FEEDBACK_LIMITS: {
+    readonly title: 120;
     readonly text: 4000;
     readonly reply: 4000;
     readonly version: 40;
@@ -19,6 +20,9 @@ export declare const FEEDBACK_LIMITS: {
 export interface FeedbackItem {
     id: string;
     kind: FeedbackKind;
+    /** Short title, what the list shows. */
+    title: string;
+    /** Description, '' when not given. */
     text: string;
     status: FeedbackStatus;
     createdBy: string;
@@ -45,6 +49,15 @@ export interface FeedbackDiagnostics {
     context: Record<string, string | number | boolean>;
     errors: ErrorLogEntry[];
 }
+/**
+ * Feedback sent before titles existed (v0.12.0) had only a text: its first line becomes the title
+ * and the rest the description; a first line too long for a title is shortened and the whole text
+ * stays as the description.
+ */
+export declare function splitUntitledFeedback(value: string): {
+    title: string;
+    text: string;
+};
 /** Reads a feedback document defensively (unknown values fall back to safe defaults). */
 export declare function feedbackFromData(id: string, data: Record<string, unknown>): FeedbackItem;
 export declare const isOpenFeedback: (item: Pick<FeedbackItem, 'status'>) => boolean;
@@ -56,6 +69,8 @@ export declare const feedbackAuthorName: (email: string) => string;
 export declare function feedbackTitle(value: string, max?: number): string;
 /** Text as it is stored: trimmed, with Windows line breaks and runs of blank lines tidied. */
 export declare const cleanFeedbackText: (value: string) => string;
+/** Title as it is stored: one line, spaces collapsed, trimmed. */
+export declare const cleanFeedbackTitle: (value: string) => string;
 /** Newest first; items still waiting for their server date go on top. */
 export declare function sortFeedback(items: readonly FeedbackItem[]): FeedbackItem[];
 /** "9 nov 2026", or "Ahora" while the server date is pending. */
@@ -63,8 +78,9 @@ export declare const formatFeedbackDate: (date: Date | null) => string;
 /** Normalised word stems of a text (case, accents and common words ignored; 5-letter stems). */
 export declare function feedbackWords(value: string): Set<string>;
 /**
- * Feedback that looks like `value` (shared words), most similar first, to avoid repeating a
- * suggestion. Needs at least two words in common, or one when the text has a single word.
+ * Feedback that looks like `value` (shared words with its title and description), most similar
+ * first, to avoid repeating a suggestion. Needs at least two words in common, or one when the text
+ * has a single word.
  */
 export declare function similarFeedback(value: string, items: readonly FeedbackItem[], { excludeId, limit }?: {
     excludeId?: string;

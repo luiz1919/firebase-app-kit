@@ -46,7 +46,8 @@ export function FeedbackDetail({ db, user, isAdmin, appName, build, githubRepo, 
     <div className="kit-feedback-view">
       {notice && <p className="kit-notice kit-notice-ok" role="status">{notice}</p>}
       <FeedbackBadges item={item} />
-      <p className="kit-feedback-text">{item.text}</p>
+      <h3 className="kit-feedback-title">{item.title}</h3>
+      {item.text && <p className="kit-feedback-text">{item.text}</p>}
       <p className="kit-feedback-meta">
         {FEEDBACK_KIND_LABELS[item.kind]} · {feedbackAuthorName(item.createdByEmail)} · {formatFeedbackDate(item.createdAt)}
         {item.appVersion && ` · v${item.appVersion}`}

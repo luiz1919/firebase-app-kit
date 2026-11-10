@@ -27,7 +27,7 @@ export function feedbackRulesTests({ environment, assertSucceeds, assertFails, r
     const fresh = () => environment().clearFirestore();
     const jpeg = (size) => ({ bytes: Uint8Array.from({ length: size }, (_, index) => (index < 3 ? [0xff, 0xd8, 0xff][index] : index % 251)), width: 30, height: 60 });
     const diagnostics = { context: { version: '1.2.3', route: '#/', online: true }, errors: [{ at: '2026-11-09T10:00:00.000Z', message: 'TypeError: x is undefined' }] };
-    const draft = (overrides = {}) => ({ kind: 'bug', text: 'La lista no se guarda', screenshots: [], diagnostics: null, ...overrides });
+    const draft = (overrides = {}) => ({ kind: 'bug', title: 'La lista no se guarda', text: 'Al volver a abrirla está vacía.', screenshots: [], diagnostics: null, ...overrides });
     async function send(uid, overrides = {}) {
         const { id, committed } = submitFeedback(as(uid), { uid, email: emailOf(uid) }, draft(overrides), '1.2.3');
         await assertSucceeds(committed);
@@ -38,7 +38,7 @@ export function feedbackRulesTests({ environment, assertSucceeds, assertFails, r
         return feedbackFromData(id, snapshot.data() ?? {});
     }
     const newFeedback = (uid, overrides = {}) => ({
-        kind: 'idea', text: 'Modo oscuro', status: 'new', createdBy: uid, createdByEmail: emailOf(uid), createdAt: serverTimestamp(),
+        kind: 'idea', title: 'Modo oscuro', text: 'Para usarla de noche', status: 'new', createdBy: uid, createdByEmail: emailOf(uid), createdAt: serverTimestamp(),
         editedAt: null, appVersion: '1.2.3', screenshotCount: 0, hasDiagnostics: false, reply: '', repliedAt: null, replyRead: true,
         resolvedVersion: '', ...overrides,
     });
@@ -97,7 +97,9 @@ export function feedbackRulesTests({ environment, assertSucceeds, assertFails, r
             newFeedback(ALICE, { reply: 'Hecho' }),
             newFeedback(ALICE, { replyRead: false }),
             newFeedback(ALICE, { resolvedVersion: '1.2.4' }),
-            newFeedback(ALICE, { text: '' }),
+            newFeedback(ALICE, { title: '' }),
+            newFeedback(ALICE, { title: 'x'.repeat(121) }),
+            newFeedback(ALICE, { title: null }),
             newFeedback(ALICE, { text: 'x'.repeat(4001) }),
             newFeedback(ALICE, { kind: 'question' }),
             newFeedback(ALICE, { createdAt: new Date(2020, 0, 1) }),
@@ -146,22 +148,40 @@ export function feedbackRulesTests({ environment, assertSucceeds, assertFails, r
         await assertFails(attempt({ hasDiagnostics: true }, [['private/other', diagnostics]]));
         await assertFails(attempt({ hasDiagnostics: true }, [['private/diagnostics', { ...diagnostics, email: 'x' }]]));
     });
-    test('feedback rules: only the author edits the kind and the text', async () => {
+    test('feedback rules: only the author edits the kind, the title and the description', async () => {
         await fresh();
         await seedAdmin();
         const id = await send(ALICE);
-        await assertSucceeds(editFeedback(as(ALICE), id, { kind: 'idea', text: 'Mejor: guardar la lista sin conexión' }));
+        await assertSucceeds(editFeedback(as(ALICE), id, { kind: 'idea', title: 'Guardar sin conexión', text: '' }));
         const saved = await itemAs(ALICE, id);
         assert.equal(saved.kind, 'idea');
+        assert.equal(saved.title, 'Guardar sin conexión');
+        assert.equal(saved.text, '');
         assert.ok(saved.editedAt instanceof Date);
-        await assertFails(editFeedback(as(BOB), id, { kind: 'bug', text: 'Cambiado por otro' }));
-        await assertFails(editFeedback(as(ADMIN), id, { kind: 'bug', text: 'Cambiado por el admin' }));
+        await assertFails(editFeedback(as(BOB), id, { kind: 'bug', title: 'Cambiado por otro', text: '' }));
+        await assertFails(editFeedback(as(ADMIN), id, { kind: 'bug', title: 'Cambiado por el admin', text: '' }));
         const alice = doc(as(ALICE), 'feedback', id);
         await assertFails(updateDoc(alice, { text: 'Sin fecha de edición' }));
-        await assertFails(updateDoc(alice, { text: '', editedAt: serverTimestamp() }));
+        await assertFails(updateDoc(alice, { title: '', editedAt: serverTimestamp() }));
+        await assertFails(updateDoc(alice, { title: 'x'.repeat(121), editedAt: serverTimestamp() }));
         await assertFails(updateDoc(alice, { status: 'done' }));
         await assertFails(updateDoc(alice, { reply: 'Me respondo yo' }));
         await assertFails(updateDoc(alice, { createdBy: BOB }));
+    });
+    test('feedback rules: feedback without a title (v0.12.0) can still be answered, read and edited to add one', async () => {
+        await fresh();
+        await seedAdmin();
+        const id = 'untitled';
+        const { title: _title, ...untitledData } = newFeedback(ALICE, { text: 'La lista no se guarda\nAl volver está vacía' });
+        await withoutRules((db) => setDoc(doc(db, 'feedback', id), { ...untitledData, createdAt: new Date() }));
+        const untitled = await itemAs(ALICE, id);
+        assert.equal(untitled.title, 'La lista no se guarda');
+        assert.equal(untitled.text, 'Al volver está vacía');
+        await assertSucceeds(manageFeedback(as(ADMIN), untitled, { status: 'in-progress', reply: 'Lo miro', resolvedVersion: '' }, ADMIN));
+        await assertSucceeds(updateDoc(doc(as(ALICE), 'feedback', id), { replyRead: true }));
+        await assertFails(updateDoc(doc(as(ALICE), 'feedback', id), { text: 'Sin título', editedAt: serverTimestamp() }));
+        await assertSucceeds(editFeedback(as(ALICE), id, { kind: 'bug', title: untitled.title, text: untitled.text }));
+        assert.equal((await itemAs(BOB, id)).title, 'La lista no se guarda');
     });
     test('feedback rules: admins set the status, the reply and the version; the author marks the reply read', async () => {
         await fresh();

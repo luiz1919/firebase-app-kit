@@ -15,7 +15,7 @@ export const FEEDBACK_STATUS_LABELS = {
     declined: 'Descartado',
 };
 /** Limits shared with the Firestore rules. */
-export const FEEDBACK_LIMITS = { text: 4000, reply: 4000, version: 40, screenshots: 3 };
+export const FEEDBACK_LIMITS = { title: 120, text: 4000, reply: 4000, version: 40, screenshots: 3 };
 const isKind = (value) => FEEDBACK_KINDS.includes(value);
 const isStatus = (value) => FEEDBACK_STATUSES.includes(value);
 const text = (value) => (typeof value === 'string' ? value : '');
@@ -29,13 +29,29 @@ function dateOf(value) {
     }
     return null;
 }
+/**
+ * Feedback sent before titles existed (v0.12.0) had only a text: its first line becomes the title
+ * and the rest the description; a first line too long for a title is shortened and the whole text
+ * stays as the description.
+ */
+export function splitUntitledFeedback(value) {
+    const clean = cleanFeedbackText(value);
+    const [first = '', ...rest] = clean.split('\n');
+    const line = first.trim();
+    if (line.length > FEEDBACK_LIMITS.title)
+        return { title: feedbackTitle(line, FEEDBACK_LIMITS.title), text: clean };
+    return { title: line, text: rest.join('\n').trim() };
+}
 /** Reads a feedback document defensively (unknown values fall back to safe defaults). */
 export function feedbackFromData(id, data) {
     const count = Number(data.screenshotCount);
+    const title = cleanFeedbackTitle(text(data.title));
+    const content = title ? { title, text: text(data.text) } : splitUntitledFeedback(text(data.text));
     return {
         id,
         kind: isKind(data.kind) ? data.kind : 'other',
-        text: text(data.text),
+        title: content.title,
+        text: content.text,
         status: isStatus(data.status) ? data.status : 'new',
         createdBy: text(data.createdBy),
         createdByEmail: text(data.createdByEmail),
@@ -63,6 +79,8 @@ export function feedbackTitle(value, max = 90) {
 }
 /** Text as it is stored: trimmed, with Windows line breaks and runs of blank lines tidied. */
 export const cleanFeedbackText = (value) => value.replace(/\r\n?/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+/** Title as it is stored: one line, spaces collapsed, trimmed. */
+export const cleanFeedbackTitle = (value) => value.replace(/\s+/g, ' ').trim();
 /** Newest first; items still waiting for their server date go on top. */
 export function sortFeedback(items) {
     const time = (item) => item.createdAt?.getTime() ?? Number.POSITIVE_INFINITY;
@@ -90,8 +108,9 @@ export function feedbackWords(value) {
     return new Set(words.map((word) => word.slice(0, 5)));
 }
 /**
- * Feedback that looks like `value` (shared words), most similar first, to avoid repeating a
- * suggestion. Needs at least two words in common, or one when the text has a single word.
+ * Feedback that looks like `value` (shared words with its title and description), most similar
+ * first, to avoid repeating a suggestion. Needs at least two words in common, or one when the text
+ * has a single word.
  */
 export function similarFeedback(value, items, { excludeId, limit = 3 } = {}) {
     const words = feedbackWords(value);
@@ -101,7 +120,7 @@ export function similarFeedback(value, items, { excludeId, limit = 3 } = {}) {
     return items
         .filter((item) => item.id !== excludeId)
         .map((item) => {
-        const other = feedbackWords(item.text);
+        const other = feedbackWords(`${item.title}\n${item.text}`);
         let shared = 0;
         for (const word of words)
             if (other.has(word))
@@ -162,8 +181,7 @@ export function feedbackContextEntries(context) {
 function reportBody(item, { appName, diagnostics }, maxText) {
     const body = item.text.length > maxText ? `${item.text.slice(0, maxText)}…` : item.text;
     const lines = [
-        body,
-        '',
+        ...(body ? [body, ''] : []),
         `- App: ${appName}${item.appVersion ? ` v${item.appVersion}` : ''}`,
         `- Kind: ${FEEDBACK_KIND_LABELS[item.kind]} (${item.kind})`,
         `- Status: ${FEEDBACK_STATUS_LABELS[item.status]} (${item.status})`,
@@ -189,7 +207,7 @@ function reportBody(item, { appName, diagnostics }, maxText) {
 }
 /** The feedback as Markdown, to paste into an issue or a chat. */
 export function feedbackToMarkdown(item, options) {
-    return `## ${feedbackTitle(item.text, 120)}\n\n${reportBody(item, options, Number.POSITIVE_INFINITY)}`;
+    return `## ${item.title}\n\n${reportBody(item, options, Number.POSITIVE_INFINITY)}`;
 }
 /** Browsers and GitHub handle URLs up to about 8000 characters. */
 const MAX_ISSUE_URL = 7500;
@@ -198,7 +216,7 @@ const MAX_ISSUE_URL = 7500;
  * reviews and submits it on GitHub). `repo` is "owner/name". Long texts are cut to fit the URL.
  */
 export function githubIssueUrl(repo, item, options) {
-    const title = feedbackTitle(item.text, 120);
+    const title = item.title;
     const label = item.kind === 'bug' ? 'bug' : item.kind === 'idea' ? 'enhancement' : '';
     const urlFor = (variant, maxText) => {
         const params = new URLSearchParams({ title, body: reportBody(item, variant, maxText) });

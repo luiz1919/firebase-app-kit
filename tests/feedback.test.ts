@@ -4,14 +4,14 @@ import { serverTimestamp } from 'firebase/firestore'
 import { feedbackDraftProblem, feedbackManagementUpdate } from '../src/feedback.ts'
 import { appendErrorEntry, describeError } from '../src/utils/errorLog.ts'
 import {
-  cleanFeedbackText, feedbackAuthorName, feedbackContextEntries, feedbackFromData, feedbackTitle, feedbackToMarkdown, feedbackWords,
-  githubIssueUrl, hasUnreadReply, similarFeedback, sortFeedback,
+  cleanFeedbackText, cleanFeedbackTitle, feedbackAuthorName, feedbackContextEntries, feedbackFromData, feedbackTitle, feedbackToMarkdown,
+  feedbackWords, githubIssueUrl, hasUnreadReply, similarFeedback, sortFeedback, splitUntitledFeedback,
 } from '../src/utils/feedback.ts'
 import type { FeedbackItem } from '../src/utils/feedback.ts'
 import { fitWithin } from '../src/utils/image.ts'
 
 const item = (overrides: Partial<FeedbackItem> = {}): FeedbackItem => ({
-  id: 'f1', kind: 'bug', text: 'La lista no se guarda', status: 'new', createdBy: 'ana', createdByEmail: 'ana@example.com',
+  id: 'f1', kind: 'bug', title: 'La lista no se guarda', text: 'Al volver a abrirla está vacía', status: 'new', createdBy: 'ana', createdByEmail: 'ana@example.com',
   createdAt: new Date(2026, 10, 9), editedAt: null, appVersion: '1.2.3', screenshotCount: 0, hasDiagnostics: false, reply: '',
   repliedAt: null, replyRead: true, resolvedVersion: '', sending: false, ...overrides,
 })
@@ -19,17 +19,25 @@ const item = (overrides: Partial<FeedbackItem> = {}): FeedbackItem => ({
 test('feedbackFromData reads Timestamps and falls back to safe values', () => {
   const when = new Date(2026, 10, 9, 10, 30)
   const parsed = feedbackFromData('x', {
-    kind: 'idea', text: 'Modo oscuro', status: 'done', createdBy: 'u1', createdByEmail: 'u1@example.com',
+    kind: 'idea', title: ' Modo   oscuro ', text: 'Para la noche', status: 'done', createdBy: 'u1', createdByEmail: 'u1@example.com',
     createdAt: { toDate: () => when }, editedAt: null, appVersion: '0.5.0', screenshotCount: 2, hasDiagnostics: true,
     reply: 'Hecho', repliedAt: { toDate: () => when }, replyRead: false, resolvedVersion: '0.6.0',
   })
   assert.deepEqual(parsed, {
-    id: 'x', kind: 'idea', text: 'Modo oscuro', status: 'done', createdBy: 'u1', createdByEmail: 'u1@example.com', createdAt: when,
+    id: 'x', kind: 'idea', title: 'Modo oscuro', text: 'Para la noche', status: 'done', createdBy: 'u1', createdByEmail: 'u1@example.com', createdAt: when,
     editedAt: null, appVersion: '0.5.0', screenshotCount: 2, hasDiagnostics: true, reply: 'Hecho', repliedAt: when, replyRead: false,
     resolvedVersion: '0.6.0', sending: false,
   })
   const odd = feedbackFromData('y', { kind: 'question', status: 'closed', screenshotCount: 9, text: 3 })
-  assert.deepEqual([odd.kind, odd.status, odd.screenshotCount, odd.text, odd.createdAt, odd.replyRead], ['other', 'new', 3, '', null, true])
+  assert.deepEqual([odd.kind, odd.status, odd.screenshotCount, odd.title, odd.text, odd.createdAt, odd.replyRead], ['other', 'new', 3, '', '', null, true])
+})
+
+test('feedback from before titles: the first line is the title and the rest the description', () => {
+  const untitled = feedbackFromData('z', { kind: 'bug', text: '  La lista no se guarda \n\nAl volver está vacía\nsiempre' })
+  assert.deepEqual([untitled.title, untitled.text], ['La lista no se guarda', 'Al volver está vacía\nsiempre'])
+  assert.deepEqual(splitUntitledFeedback('Solo una línea'), { title: 'Solo una línea', text: '' })
+  const long = 'x'.repeat(130)
+  assert.deepEqual(splitUntitledFeedback(`${long}\nresto`), { title: `${'x'.repeat(119)}…`, text: `${long}\nresto` })
 })
 
 test('titles, author names and text cleaning', () => {
@@ -38,13 +46,15 @@ test('titles, author names and text cleaning', () => {
   assert.equal(feedbackAuthorName('luis.perez@gmail.com'), 'luis.perez')
   assert.equal(feedbackAuthorName(''), 'Alguien')
   assert.equal(cleanFeedbackText('  uno\r\n\r\n\r\n\r\ndos  '), 'uno\n\ndos')
+  assert.equal(cleanFeedbackTitle('  Modo \n oscuro  '), 'Modo oscuro')
 })
 
-test('drafts need text within the limit and at most three screenshots', () => {
-  assert.equal(feedbackDraftProblem('   \n '), 'Escribe tu comentario.')
-  assert.match(feedbackDraftProblem('x'.repeat(4001)) ?? '', /demasiado largo/)
-  assert.match(feedbackDraftProblem('Hola', 4) ?? '', /hasta 3 capturas/)
-  assert.equal(feedbackDraftProblem('Hola', 3), null)
+test('drafts need a title, short texts and at most three screenshots; the description is optional', () => {
+  assert.equal(feedbackDraftProblem({ title: '   \n ', text: 'Algo' }), 'Escribe un título.')
+  assert.match(feedbackDraftProblem({ title: 'x'.repeat(121), text: '' }) ?? '', /título es demasiado largo/)
+  assert.match(feedbackDraftProblem({ title: 'Hola', text: 'x'.repeat(4001) }) ?? '', /descripción es demasiado larga/)
+  assert.match(feedbackDraftProblem({ title: 'Hola', text: '' }, 4) ?? '', /hasta 3 capturas/)
+  assert.equal(feedbackDraftProblem({ title: 'Hola', text: '' }, 3), null)
 })
 
 test('newest first, with items waiting for their server date on top', () => {
@@ -66,9 +76,9 @@ test('unread replies only count for their author', () => {
 test('similar feedback ignores case, accents, plurals and common words', () => {
   assert.deepEqual([...feedbackWords('La sincronización de las LISTAS falla')].sort(), ['falla', 'lista', 'sincr'])
   const items = [
-    item({ id: 'sync', text: 'Las listas no se sincronizan entre el móvil y el ordenador' }),
-    item({ id: 'dark', kind: 'idea', text: 'Modo oscuro para usarla de noche' }),
-    item({ id: 'closed-sync', status: 'done', text: 'No sincroniza la lista' }),
+    item({ id: 'sync', title: 'Las listas no se sincronizan', text: 'Entre el móvil y el ordenador' }),
+    item({ id: 'dark', kind: 'idea', title: 'Modo oscuro', text: 'Para usarla de noche' }),
+    item({ id: 'closed-sync', status: 'done', title: 'No sincroniza', text: 'La lista del móvil' }),
   ]
   assert.deepEqual(similarFeedback('la lista no sincroniza', items).map((entry) => entry.id), ['sync', 'closed-sync'])
   assert.deepEqual(similarFeedback('oscuro', items).map((entry) => entry.id), ['dark'])
@@ -87,14 +97,15 @@ test('the Markdown report has the text, the facts, the reply and the technical d
     appName: 'Labia',
     diagnostics: { context: { route: '#/despensa' }, errors: [{ at: '2026-11-09T10:00:00.000Z', message: 'TypeError: boom' }] },
   })
-  assert.match(markdown, /^## La lista no se guarda\n\nLa lista no se guarda\n/)
+  assert.match(markdown, /^## La lista no se guarda\n\nAl volver a abrirla está vacía\n/)
+  assert.match(feedbackToMarkdown(item({ text: '' }), { appName: 'Labia' }), /^## La lista no se guarda\n\n- App: Labia/)
   for (const part of ['- App: Labia v1.2.3', '- Kind: Algo no funciona (bug)', '- Author: ana,', '- Firestore: feedback/f1', '- Screenshots: 2', '### Reply\n\nMirándolo', '- Pantalla de la app: #/despensa', '2026-11-09T10:00:00.000Z TypeError: boom']) {
     assert.ok(markdown.includes(part), part)
   }
 })
 
 test('GitHub issue links carry title, body and label, and fit in a URL', () => {
-  const url = new URL(githubIssueUrl('luiz1919/labia-app', item({ kind: 'idea', text: 'Modo oscuro\nPor la noche' }), { appName: 'Labia' }))
+  const url = new URL(githubIssueUrl('luiz1919/labia-app', item({ kind: 'idea', title: 'Modo oscuro', text: 'Por la noche' }), { appName: 'Labia' }))
   assert.equal(`${url.origin}${url.pathname}`, 'https://github.com/luiz1919/labia-app/issues/new')
   assert.equal(url.searchParams.get('title'), 'Modo oscuro')
   assert.equal(url.searchParams.get('labels'), 'enhancement')
