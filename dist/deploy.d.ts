@@ -8,6 +8,12 @@ export interface DeployOptions {
     appName: string;
     /** Firebase project to publish to. The compiled config must belong to this project. */
     projectId: string;
+    /**
+     * Dev project with test data ("Pruebas"), if the app has one. The build must then include its
+     * config (devFirebaseConfigFile or VITE_FIREBASE_DEV_*) for this project, and each deploy also
+     * publishes firestore.rules to it, so "Pruebas" behaves like production.
+     */
+    devProjectId?: string;
     /** App root (package.json, firebase.json, vite.config.ts). Defaults to the current directory. */
     root?: string | URL;
     /** Arguments of `npm run deploy -- ...`. Defaults to process.argv.slice(2). */
@@ -93,8 +99,18 @@ export declare function addChangelogVersion(content: string | null, release: Cha
  * uses it, the file read by the firebaseAppKit() plugin.
  */
 export declare function buildFirebaseConfig(root: string): Promise<FirebaseWebConfig>;
+/** The production and dev ("Pruebas") Firebase configs the build will use ({} fields when missing). */
+export declare function buildFirebaseConfigs(root: string): Promise<{
+    prod: FirebaseWebConfig;
+    dev: FirebaseWebConfig;
+}>;
 /** Reason not to publish with this config, or null if it is correct. */
 export declare function firebaseConfigProblem(config: FirebaseWebConfig, projectId: string): string | null;
+/**
+ * Reason not to publish with this dev ("Pruebas") config, or null. With `devProjectId` it must be
+ * complete and of that project; without it, the build must not carry a dev config (its rules would never be published).
+ */
+export declare function devFirebaseConfigProblem(dev: FirebaseWebConfig, prod: FirebaseWebConfig, devProjectId: string | undefined): string | null;
 /**
  * Releases and publishes the app to Firebase Hosting. Stops at the first step that fails:
  * 1. Checks the Firebase CLI and git (release branch, nothing uncommitted, up to date with the remote),
@@ -103,8 +119,8 @@ export declare function firebaseConfigProblem(config: FirebaseWebConfig, project
  * 3. Locally, before building (so "Acerca de" (About) shows the published version and commit): with the
  *    `changelog` option, adds the version to the changelog and commits it; then creates the release commit
  *    (version in package.json and package-lock.json) and the vX.Y.Z tag.
- * 4. Builds and publishes Hosting only. If the build or the publish fails, the commits, tag, version and
- *    changelog are undone.
+ * 4. Builds and publishes Hosting only (and, with `devProjectId`, the Firestore rules to the dev project
+ *    first). If the build or the publish fails, the commits, tag, version and changelog are undone.
  * 5. Pushes the commits and the tag. A tag on GitHub therefore always means "this version is published".
  * --check runs steps 2 and the build only (and shows what the changelog would get), without touching git or Firebase.
  */

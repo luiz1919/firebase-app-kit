@@ -380,12 +380,15 @@ changes first; the script only makes the release commits. It stops at the first 
    passed) and checks that the new `vX.Y.Z` tag does not exist yet. With the `changelog` option,
    it shows the entries the new version will get (see below).
 3. `npm ci`, checks that the Firebase config about to be compiled is complete and belongs to the
-   given `projectId`, `npm run lint` and, if the app has a `test` script, `npm test`.
+   given `projectId` (and the dev one to `devProjectId`, see [Pruebas](#pruebas-dev-project)),
+   `npm run lint` and, if the app has a `test` script, `npm test`.
 4. Locally: with the `changelog` option, adds the version to the changelog and commits it as
    `docs(changelog): vX.Y.Z`; then writes the version to `package.json` and `package-lock.json`,
    commits them as `chore(release): vX.Y.Z` and creates the annotated tag `vX.Y.Z`. This happens
    before building, so "Acerca de" (About) shows the published version and commit.
-5. `npm run build` and publishes **Hosting only** to the given project. If either fails, the
+5. `npm run build` and publishes **Hosting only** to the given project (with `devProjectId`, it
+   first publishes `firestore.rules` to the dev project, so Pruebas behaves like production;
+   the production rules are still published by hand). If either fails, the
    commits, the tag, the version and the changelog are undone: nothing published, nothing pushed.
 6. Pushes the commits and the tag together (`git push --atomic`). If the push fails, the
    app is already published: the script prints the command to push it later.
@@ -406,6 +409,42 @@ or Firebase.
   version goes before the first `## ` heading; a missing file is created.
 - With a GitHub remote, the heading links to the changes since the previous tag
   (`[vX.Y.Z]: https://github.com/owner/repo/compare/...`, added to the links at the end).
+
+## Pruebas (dev project)
+
+Each app can have a second Firebase project with test data ("Pruebas"), to try things with lots
+of data without touching the real ones. The published app carries both configs; each device
+chooses one in "Acerca de" and the app reloads with it. Each project has its own session and
+offline cache, so nothing mixes.
+
+1. Create the dev project in the Firebase console (free plan): Firestore in the same region,
+   Email/Password sign-in with your user, and a web app. Copy its `firebaseConfig` block to
+   `firebaseConfig.dev` (git-ignored, like `firebaseConfig`) or to `VITE_FIREBASE_DEV_*` variables.
+2. `vite.config.ts`: `firebaseAppKit({ firebaseConfigFile: 'firebaseConfig', devFirebaseConfigFile: 'firebaseConfig.dev' })`.
+3. `src/firebase.ts`:
+
+   ```ts
+   export const { auth, db, environment } = initFirebase(firebaseConfigFromEnv(import.meta.env, __FIREBASE_CONFIG__), {
+     dev: firebaseConfigFromEnv(import.meta.env, __FIREBASE_DEV_CONFIG__, 'dev'),
+   })
+   ```
+
+   The dev config is only used if it is complete and of another project; otherwise the app stays in production.
+4. UI: `<EnvBanner environment={environment} />` first in the page (an orange "PRUEBAS · estos
+   datos no son reales" band; sticky headers can use `top: var(--kit-env-banner-height, 0)`), and
+   `<AboutButton ... environment={environment} canSwitchEnvironment={isAdmin} testData={testData} />`
+   with `isAdmin = useFeedbackAdmin(db, user.uid)`. "Acerca de" then shows "Entorno": "Cambiar a
+   Pruebas" for admins and, in Pruebas, "Volver a Real" for everyone (also on the login screen,
+   where there is no user yet). Pass `environment` to `FeedbackButton` too: in Pruebas it says
+   the feedback stays in the dev project.
+5. Test data (optional): `testData: TestDataActions` = `{ sizes, generate(sizeId, onProgress),
+   clear(onProgress) }`, the app's own generator, shown in "Acerca de" only in Pruebas. Build the
+   writes as `BatchWrite`s (`batch => batch.set(ref, data)`) and send them with
+   `commitInBatches(db, writes, onProgress)` (batches of 400, waiting for the server); call
+   `assertDevEnvironment(environment)` first.
+6. `scripts/deploy.mjs`: `deploy({ ..., devProjectId: 'my-app-dev' })`. The deploy checks the dev
+   config belongs to it and publishes the Firestore rules there on each release. A build with a
+   dev config but no `devProjectId` is refused.
 
 ## Developing the kit
 

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, test } from 'node:test'
 import {
-  addChangelogVersion, buildFirebaseConfig, firebaseConfigProblem, githubRepoUrl, incrementVersion, isSemver, parseDeployArgs, releaseNotes,
+  addChangelogVersion, buildFirebaseConfig, buildFirebaseConfigs, devFirebaseConfigProblem, firebaseConfigProblem, githubRepoUrl, incrementVersion, isSemver, parseDeployArgs, releaseNotes,
   unreleasedNotes, writeVersion,
 } from '../src/deploy.ts'
 
@@ -72,6 +72,36 @@ test('buildFirebaseConfig combines .env and the file, and does not change proces
   } finally {
     rmSync(app, { recursive: true, force: true })
   }
+})
+
+test('buildFirebaseConfigs also reads the dev config (file and VITE_FIREBASE_DEV_* variables)', async () => {
+  const app = mkdtempSync(join(tmpdir(), 'firebase-app-kit-app-'))
+  try {
+    writeFileSync(join(app, 'package.json'), '{ "version": "1.0.0" }')
+    writeFileSync(join(app, '.env.local'), 'VITE_FIREBASE_DEV_APP_ID=env-dev-app\n')
+    writeFileSync(join(app, 'firebaseConfig'), 'const firebaseConfig = { apiKey: "file-key", projectId: "demo", appId: "app" }')
+    writeFileSync(join(app, 'firebaseConfig.dev'), 'const firebaseConfig = { apiKey: "dev-key", projectId: "demo-dev", appId: "dev-app" }')
+    const pluginUrl = new URL('../src/vite.ts', import.meta.url).href
+    writeFileSync(join(app, 'vite.config.mjs'), `import { firebaseAppKit } from ${JSON.stringify(pluginUrl)}\nexport default { plugins: [firebaseAppKit({ firebaseConfigFile: 'firebaseConfig', devFirebaseConfigFile: 'firebaseConfig.dev' })] }\n`)
+    const { prod, dev } = await buildFirebaseConfigs(app)
+    assert.equal(prod.projectId, 'demo')
+    assert.equal(dev.projectId, 'demo-dev')
+    assert.equal(dev.appId, 'env-dev-app')
+    assert.equal(devFirebaseConfigProblem(dev, prod, 'demo-dev'), null)
+  } finally {
+    rmSync(app, { recursive: true, force: true })
+  }
+})
+
+test('devFirebaseConfigProblem: the dev project given must match, and a dev config needs devProjectId', () => {
+  const prod = { apiKey: 'key', projectId: 'demo', appId: 'app' }
+  const dev = { apiKey: 'dev-key', projectId: 'demo-dev', appId: 'dev-app' }
+  assert.equal(devFirebaseConfigProblem({}, prod, undefined), null)
+  assert.equal(devFirebaseConfigProblem({ apiKey: undefined }, prod, undefined), null)
+  assert.match(devFirebaseConfigProblem(dev, prod, undefined) ?? '', /no devProjectId/)
+  assert.match(devFirebaseConfigProblem({}, prod, 'demo-dev') ?? '', /incomplete/)
+  assert.match(devFirebaseConfigProblem(dev, prod, 'other-dev') ?? '', /"demo-dev", not other-dev/)
+  assert.match(devFirebaseConfigProblem({ ...dev, projectId: 'demo' }, prod, 'demo') ?? '', /production project/)
 })
 
 test('firebaseConfigProblem requires a complete config for the given project', () => {

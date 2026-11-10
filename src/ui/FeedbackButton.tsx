@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import type { Firestore } from 'firebase/firestore'
+import type { AppEnvironment } from '../env.ts'
 import { useFeedbackAdmin, useFeedbackBadge, useFeedbackList } from '../react/feedback.ts'
 import type { BuildInfo } from '../utils/build.ts'
 import { installErrorLog } from '../utils/errorLog.ts'
@@ -23,6 +24,8 @@ export interface FeedbackButtonProps {
   build: BuildInfo
   /** "owner/repo" on GitHub: admins get a "Crear issue en GitHub" link. */
   githubRepo?: string
+  /** Project in use (initFirebase(...).environment): in "Pruebas" the dialog says the feedback stays there. */
+  environment?: AppEnvironment
 }
 
 type View = { name: 'list' } | { name: 'new' } | { name: 'edit'; id: string } | { name: 'detail'; id: string; notice?: string }
@@ -36,7 +39,7 @@ const VIEW_TITLES: Record<View['name'], string> = { list: 'Comentarios', new: 'N
  * details, and each item with its status and reply. Admins (admins/{uid} in Firestore) see a
  * count of new items and manage them. The draft survives closing the dialog.
  */
-export function FeedbackButton({ db, user, appName, build, githubRepo }: FeedbackButtonProps) {
+export function FeedbackButton({ db, user, appName, build, githubRepo, environment }: FeedbackButtonProps) {
   const isAdmin = useFeedbackAdmin(db, user.uid)
   const { unreadReplies, waiting } = useFeedbackBadge(db, user.uid, isAdmin)
   const { open, close, dialogProps } = useModalDialog()
@@ -74,6 +77,7 @@ export function FeedbackButton({ db, user, appName, build, githubRepo }: Feedbac
             appName={appName}
             build={build}
             githubRepo={githubRepo}
+            environment={environment}
             draft={draft}
             setDraft={setDraft}
             writeError={writeError}
@@ -178,6 +182,9 @@ function FeedbackPanel(props: PanelProps) {
         <h2 id={titleId} ref={headingRef} tabIndex={-1}>{VIEW_TITLES[view.name]}</h2>
         <button className="kit-icon-button" type="button" autoFocus onClick={onClose} aria-label="Cerrar los comentarios" title="Cerrar"><CloseIcon /></button>
       </div>
+      {props.environment?.current === 'dev' && (
+        <p className="kit-notice kit-notice-warn kit-feedback-banner">Estás en Pruebas: estos comentarios se guardan en la base de datos de pruebas, no en la real.</p>
+      )}
       {writeError && (
         <div className="kit-notice kit-notice-error kit-feedback-banner" role="alert">
           <span>{writeError}</span>

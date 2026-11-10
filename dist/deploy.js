@@ -3,7 +3,7 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
-import { firebaseConfigFromEnv, isFirebaseConfigured } from './config.js';
+import { devConfigProblem, firebaseConfigFromEnv, isFirebaseConfigured } from './config.js';
 import { rulesSnippetProblem } from './rules.js';
 import { todayIso } from './utils/dates.js';
 export { RULES_SNIPPETS, kitRulesSnippet, outdatedRulesSnippets, rulesSnippetProblem, syncRulesFile, updateRulesSnippets } from './rules.js';
@@ -264,14 +264,21 @@ export function addChangelogVersion(content, release) {
  * uses it, the file read by the firebaseAppKit() plugin.
  */
 export async function buildFirebaseConfig(root) {
+    return (await buildFirebaseConfigs(root)).prod;
+}
+/** The production and dev ("Pruebas") Firebase configs the build will use ({} fields when missing). */
+export async function buildFirebaseConfigs(root) {
     // resolveConfig() fills in process.env (for example NODE_ENV=development). It is restored:
     // otherwise `npm run build` would inherit it and build React in development mode.
     const env = { ...process.env };
     try {
         const { resolveConfig } = await import('vite');
         const resolved = await resolveConfig({ root, logLevel: 'silent' }, 'build', 'production', 'production');
-        const fileConfig = JSON.parse(String(resolved.define?.__FIREBASE_CONFIG__ ?? '{}'));
-        return firebaseConfigFromEnv(resolved.env, fileConfig);
+        const define = (name) => JSON.parse(String(resolved.define?.[name] ?? '{}'));
+        return {
+            prod: firebaseConfigFromEnv(resolved.env, define('__FIREBASE_CONFIG__')),
+            dev: firebaseConfigFromEnv(resolved.env, define('__FIREBASE_DEV_CONFIG__'), 'dev'),
+        };
     }
     finally {
         for (const key of Object.keys(process.env))
@@ -287,6 +294,22 @@ export function firebaseConfigProblem(config, projectId) {
     if (config.projectId !== projectId) {
         return `The production Firebase config belongs to project "${config.projectId}", not ${projectId}.`;
     }
+    return null;
+}
+/**
+ * Reason not to publish with this dev ("Pruebas") config, or null. With `devProjectId` it must be
+ * complete and of that project; without it, the build must not carry a dev config (its rules would never be published).
+ */
+export function devFirebaseConfigProblem(dev, prod, devProjectId) {
+    const hasConfig = Object.values(dev).some(Boolean);
+    if (!devProjectId) {
+        return hasConfig ? `The build has a dev Firebase config (${dev.projectId ?? 'incomplete'}) but the deploy has no devProjectId.` : null;
+    }
+    const problem = devConfigProblem(dev, prod);
+    if (problem)
+        return problem;
+    if (dev.projectId !== devProjectId)
+        return `The dev Firebase config belongs to project "${dev.projectId}", not ${devProjectId}.`;
     return null;
 }
 function askVersionType(current) {
@@ -320,8 +343,8 @@ function banner(appName) {
  * 3. Locally, before building (so "Acerca de" (About) shows the published version and commit): with the
  *    `changelog` option, adds the version to the changelog and commits it; then creates the release commit
  *    (version in package.json and package-lock.json) and the vX.Y.Z tag.
- * 4. Builds and publishes Hosting only. If the build or the publish fails, the commits, tag, version and
- *    changelog are undone.
+ * 4. Builds and publishes Hosting only (and, with `devProjectId`, the Firestore rules to the dev project
+ *    first). If the build or the publish fails, the commits, tag, version and changelog are undone.
  * 5. Pushes the commits and the tag. A tag on GitHub therefore always means "this version is published".
  * --check runs steps 2 and the build only (and shows what the changelog would get), without touching git or Firebase.
  */
@@ -417,14 +440,15 @@ export async function deploy(options) {
         fail(rulesProblem);
     console.log('\n📥 Installing dependencies...');
     run('npm', ['ci']);
-    let firebaseConfig;
+    let firebaseConfigs;
     try {
-        firebaseConfig = await buildFirebaseConfig(root);
+        firebaseConfigs = await buildFirebaseConfigs(root);
     }
     catch (error) {
         fail(`Could not read the Vite config: ${error instanceof Error ? error.message : String(error)}`);
     }
-    const problem = firebaseConfigProblem(firebaseConfig, projectId);
+    const problem = firebaseConfigProblem(firebaseConfigs.prod, projectId)
+        ?? devFirebaseConfigProblem(firebaseConfigs.dev, firebaseConfigs.prod, options.devProjectId);
     if (problem)
         fail(`${problem} Nothing will be published.`);
     const hasTests = Boolean(readPackage().scripts?.test);
@@ -447,6 +471,11 @@ export async function deploy(options) {
     if (checkOnly) {
         console.log('\n✅ Validation passed. Nothing was published.\n');
         return;
+    }
+    // Before Hosting, so a failure stops the deploy with nothing published.
+    if (options.devProjectId) {
+        console.log(`\n🧪 Publishing the Firestore rules to the dev project (${options.devProjectId})...`);
+        run('firebase', ['deploy', '--config', 'firebase.json', '--only', 'firestore:rules', '--project', options.devProjectId, '--non-interactive']);
     }
     console.log('\n🚀 Deploying to Firebase...');
     run('firebase', ['deploy', '--config', 'firebase.json', '--only', 'hosting', '--project', projectId, '--non-interactive']);

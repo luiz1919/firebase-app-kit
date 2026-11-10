@@ -8,6 +8,34 @@ Versions up to v0.11.0 were written afterwards from the tags, the commits and th
 
 ## Unreleased
 
+## [v0.14.0] - 2026-11-10
+
+### Added
+
+- "Pruebas" (dev project): a second Firebase project per app with test data, chosen per device in
+  "Acerca de" (README, "Pruebas (dev project)"). `initFirebase(prod, { dev })` uses the dev config
+  only when chosen and only if it is complete and of another project, and returns `environment`
+  (`{ current: 'prod' | 'dev', devAvailable, projectId }`). Config: `firebaseConfigFromEnv(env,
+  fallback, 'dev')` reads `VITE_FIREBASE_DEV_*`; the plugin's `devFirebaseConfigFile` defines
+  `__FIREBASE_DEV_CONFIG__` (`{}` without it). Helpers: `storedAppEnv`, `switchAppEnv`,
+  `chooseFirebaseConfig`, `devConfigProblem`, `assertDevEnvironment`.
+- `EnvBanner` (ui): orange "PRUEBAS · estos datos no son reales" band while in Pruebas, with
+  `--kit-env-banner-height` for sticky headers and `--kit-env` / `--kit-env-contrast` colours.
+- `AboutButton` `environment`, `canSwitchEnvironment` and `testData` props: an "Entorno" section
+  with "Cambiar a Pruebas" (for those allowed, e.g. admins) and, in Pruebas, "Volver a Real" (for
+  everyone) and the app's test data tools (choose an amount, "Generar datos de prueba", "Borrar
+  mis datos de prueba", with progress). `TestDataActions` / `TestDataSize` types.
+- `commitInBatches(db, writes, onProgress)` and `BatchWrite` / `WriteProgress`: writes in batches
+  of 400 waiting for the server, for test data generators.
+- `FeedbackButton` `environment` prop: in Pruebas the dialog says the feedback stays there.
+- Deploy `devProjectId`: checks the compiled dev config belongs to it (and refuses a build with a
+  dev config but no `devProjectId`), and publishes `firestore.rules` to the dev project before
+  Hosting. `buildFirebaseConfigs` and `devFirebaseConfigProblem` (deploy entry).
+
+### Upgrade
+
+- Nothing required: without a dev config apps work as before. To add Pruebas, follow the README.
+
 ## [v0.13.0] - 2026-11-10
 
 ### Changed
@@ -258,6 +286,8 @@ Versions up to v0.11.0 were written afterwards from the tags, the commits and th
 
 - Never tagged: commit [93c55b4](https://github.com/luiz1919/firebase-app-kit/commit/93c55b4).
 
+[v0.14.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.13.0...v0.14.0
+[v0.13.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.12.0...v0.13.0
 [v0.12.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.11.0...v0.12.0
 [v0.11.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.10.1...v0.11.0
 [v0.10.1]: https://github.com/luiz1919/firebase-app-kit/compare/v0.10.0...v0.10.1

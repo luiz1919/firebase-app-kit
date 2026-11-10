@@ -142,6 +142,7 @@ function gitCommit(root) {
  * - __APP_COMMIT__: git commit, or '' if none.
  * - __BUILD_TIME__: build date in ISO format; '' in development.
  * - __FIREBASE_CONFIG__: config read from `firebaseConfigFile`, or {}.
+ * - __FIREBASE_DEV_CONFIG__: config of the dev project read from `devFirebaseConfigFile`, or {}.
  * With `serviceWorker`, it also emits /sw.js in the build (see serviceWorkerSource).
  */
 export function firebaseAppKit(options = {}) {
@@ -152,12 +153,16 @@ export function firebaseAppKit(options = {}) {
             const firebaseConfig = options.firebaseConfigFile
                 ? await readFirebaseConfigFile(resolve(root, options.firebaseConfigFile))
                 : {};
+            const devFirebaseConfig = options.devFirebaseConfigFile
+                ? await readFirebaseConfigFile(resolve(root, options.devFirebaseConfigFile))
+                : {};
             return {
                 define: {
                     __APP_VERSION__: JSON.stringify(packageVersion(root)),
                     __APP_COMMIT__: JSON.stringify(gitCommit(root)),
                     __BUILD_TIME__: JSON.stringify(command === 'build' ? new Date().toISOString() : ''),
                     __FIREBASE_CONFIG__: JSON.stringify(firebaseConfig),
+                    __FIREBASE_DEV_CONFIG__: JSON.stringify(devFirebaseConfig),
                 },
             };
         },

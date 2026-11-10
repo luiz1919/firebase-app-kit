@@ -9,3 +9,5 @@ declare const __APP_COMMIT__: string
 declare const __BUILD_TIME__: string
 /** Config read from the firebaseConfig file, or {} if the app does not use it. */
 declare const __FIREBASE_CONFIG__: import('./dist/config.js').FirebaseWebConfig
+/** Config of the dev project ("Pruebas") read from the devFirebaseConfigFile file, or {}. */
+declare const __FIREBASE_DEV_CONFIG__: import('./dist/config.js').FirebaseWebConfig

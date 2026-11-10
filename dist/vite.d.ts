@@ -6,6 +6,11 @@ export interface FirebaseAppKitOptions {
      * relative to the app root. If it does not exist, the config comes only from the VITE_FIREBASE_* variables.
      */
     firebaseConfigFile?: string;
+    /**
+     * The same for the dev project with test data ("Pruebas"), e.g. 'firebaseConfig.dev'. Missing
+     * fields come from the VITE_FIREBASE_DEV_* variables; without file or variables the app has no "Pruebas".
+     */
+    devFirebaseConfigFile?: string;
     /** Generates /sw.js at build time (the shared offline strategy). The app must not have public/sw.js. */
     serviceWorker?: ServiceWorkerOptions;
 }
@@ -37,6 +42,7 @@ export declare function readFirebaseConfigFile(path: string): Promise<FirebaseWe
  * - __APP_COMMIT__: git commit, or '' if none.
  * - __BUILD_TIME__: build date in ISO format; '' in development.
  * - __FIREBASE_CONFIG__: config read from `firebaseConfigFile`, or {}.
+ * - __FIREBASE_DEV_CONFIG__: config of the dev project read from `devFirebaseConfigFile`, or {}.
  * With `serviceWorker`, it also emits /sw.js in the build (see serviceWorkerSource).
  */
 export declare function firebaseAppKit(options?: FirebaseAppKitOptions): Plugin;

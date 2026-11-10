@@ -94,6 +94,15 @@ test('without firebaseConfigFile the config is {}', async () => {
   const config = firebaseAppKit().config as unknown as ConfigHook
   const result = await config({ root: dir }, { command: 'build', mode: 'production' })
   assert.deepEqual(JSON.parse(result.define.__FIREBASE_CONFIG__), {})
+  assert.deepEqual(JSON.parse(result.define.__FIREBASE_DEV_CONFIG__), {})
+})
+
+test('devFirebaseConfigFile defines the dev project config', async () => {
+  writeFileSync(join(dir, 'firebaseConfig.dev'), 'const firebaseConfig = { apiKey: "dev-key", projectId: "demo-dev", appId: "dev-app" }')
+  const config = firebaseAppKit({ firebaseConfigFile: 'firebaseConfig', devFirebaseConfigFile: 'firebaseConfig.dev' }).config as unknown as ConfigHook
+  const result = await config({ root: dir }, { command: 'build', mode: 'production' })
+  assert.equal(JSON.parse(result.define.__FIREBASE_CONFIG__).projectId, 'demo')
+  assert.equal(JSON.parse(result.define.__FIREBASE_DEV_CONFIG__).projectId, 'demo-dev')
 })
 
 type PluginHooks = {
