@@ -36,16 +36,20 @@ interface EnvironmentPanelProps {
   environment: AppEnvironment
   canSwitch: boolean
   testData?: TestDataActions
+  /** Heading level of the card: 2 on the "Acerca de" screen, 3 in its dialog. */
+  level?: 2 | 3
 }
 
-/** "Entorno" (Environment) section of "Acerca de" (About): Real / Pruebas switch and test data. */
-export function EnvironmentPanel({ environment, canSwitch, testData }: EnvironmentPanelProps) {
+/** "Entorno" (Environment) card of "Acerca de" (About): Real / Pruebas switch and test data. */
+export function EnvironmentPanel({ environment, canSwitch, testData, level = 3 }: EnvironmentPanelProps) {
   const [size, setSize] = useState(testData?.sizes[0]?.id ?? '')
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState<Status>(null)
   const statusRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
-  // On a phone the dialog scrolls: keep the progress and the result in view.
+  const Heading = level === 2 ? 'h2' : 'h3'
+  const SubHeading = level === 2 ? 'h3' : 'h4'
+  // On a phone the screen or dialog scrolls: keep the progress and the result in view.
   useEffect(() => {
     if (status) statusRef.current?.scrollIntoView({ block: 'nearest' })
   }, [status])
@@ -77,8 +81,8 @@ export function EnvironmentPanel({ environment, canSwitch, testData }: Environme
   }
 
   return (
-    <section className="kit-env-panel" aria-labelledby={titleId}>
-      <h3 id={titleId}>Entorno</h3>
+    <section className="kit-about-card kit-env-panel" aria-labelledby={titleId}>
+      <Heading id={titleId}>Entorno</Heading>
       <p className="kit-env-current">
         <span className={`kit-env-badge kit-env-badge-${environment.current}`}>{LABELS[environment.current]}</span>
         <code>{environment.projectId}</code>
@@ -94,7 +98,7 @@ export function EnvironmentPanel({ environment, canSwitch, testData }: Environme
 
       {isDev && testData && (
         <div className="kit-env-test-data">
-          <h3>Datos de prueba</h3>
+          <SubHeading>Datos de prueba</SubHeading>
           <fieldset className="kit-env-sizes" disabled={busy}>
             <legend>Cantidad</legend>
             {testData.sizes.map((option) => (

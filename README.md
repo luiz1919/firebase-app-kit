@@ -102,13 +102,20 @@ import './index.css'
 ```
 
 ```tsx
-import { AboutButton, LoginForm, SyncStatus } from 'firebase-app-kit/ui'
+import { AboutButton, AboutPage, LoginForm, SyncStatus } from 'firebase-app-kit/ui'
 
 // The app passes its build constants: Vite's define is not reliable inside pre-bundled dependencies.
 const build = { version: __APP_VERSION__, commit: __APP_COMMIT__, buildTime: __BUILD_TIME__ }
 
-<AboutButton appName="Labia" build={build} />
-// optional developer={{ name: 'luiz1919 en GitHub', url: 'https://github.com/luiz1919' }} (the default)
+// "Acerca de": one AboutInfo object per app (e.g. src/about.ts), used by both components.
+const about = {
+  appName: 'Labia', build, icon: '/icons/labia.svg', tagline: 'Tu diccionario de bolsillo',
+  description: '...', technology: ['React y TypeScript', '...'], privacy: ['...'],
+  privacyNote: 'Borrador provisional...', links: [{ label: 'Soporte', url: '' }], disclaimer: '...',
+  // optional: developer (default luiz1919 en GitHub), environment, canSwitchEnvironment, testData
+}
+<AboutPage {...about} back={{ label: 'Ajustes', href: '#/ajustes' }} />  // a screen inside "Ajustes"
+<AboutButton {...about} />                                               // info icon + dialog (sign-in screen)
 
 <LoginForm auth={auth} sessionError={sessionError} />
 // The form only: email with the domain chips, password with show/hide, errors, "Entrar".
@@ -119,9 +126,15 @@ const build = { version: __APP_VERSION__, commit: __APP_COMMIT__, buildTime: __B
 // dialog shows `error`, or else details.error. onDismissError (optional) adds an "Entendido" button.
 ```
 
-- `AboutButton`: underlined "Acerca de" link that opens a modal `<dialog>` with the version, commit,
-  build date ("Versión de desarrollo" in dev) and developer link. Escape, the close button or a tap
-  on the backdrop close it.
+- `AboutPage`: "Acerca de" as a screen, reached from the app's "Ajustes" (Settings): back link or
+  button (`back`), the app's icon, name (`<h1 class="kit-about-title" tabIndex={-1}>`, so the app
+  can focus it after navigating) and tagline, the description, then cards: "Versión" (version,
+  commit, build date or "Versión de desarrollo", developer), "Entorno" (with `environment`, see
+  [Pruebas](#pruebas-dev-project)), "Tecnología", "Privacidad" (with an optional notice) and
+  "Enlaces" (a link with an empty `url` shows "Próximamente"). Cards without content are left out.
+- `AboutButton`: 40 px info icon (`kit-icon-button`) that opens the same content in a modal
+  `<dialog>`, for screens without "Ajustes" such as the sign-in screen. Escape, the close button or
+  a tap on the backdrop close it.
 - `SyncStatus`: cloud icon button (coloured by state) that opens a centred modal `<dialog>`, like
   "Acerca de": the state with its icon as the title, the explanation, a close button and, in the
   error state with `onDismissError`, "Entendido". It fits phones (at most 420 px wide, 16 px from
@@ -148,6 +161,7 @@ All classes start with `kit-`. Theme them with these optional variables (fallbac
 | `--kit-success`, `--kit-success-soft` | "Ok" notices and the free-tier badge of the AI panel |
 | `--kit-warning`, `--kit-warning-soft` | Warning notices of the AI panel |
 | `--kit-radius` | Corner radius of fields, buttons and panels |
+| `--kit-card-radius`, `--kit-card-shadow` | Cards of "Acerca de" (default: `--kit-radius` + 6 px, no shadow), to match the app's own cards |
 | `--kit-sync-synced`, `--kit-sync-syncing`, `--kit-sync-offline`, `--kit-sync-error` | Sync icon color per state |
 | `--kit-badge`, `--kit-badge-contrast` | Count on the feedback icon and "Respuesta nueva" (default: `--kit-danger` / white) |
 
@@ -432,10 +446,10 @@ offline cache, so nothing mixes.
    The dev config is only used if it is complete and of another project; otherwise the app stays in production.
 4. UI: `<EnvBanner environment={environment} />` first in the page (an orange "PRUEBAS · estos
    datos no son reales" band; sticky headers can use `top: var(--kit-env-banner-height, 0)`), and
-   `<AboutButton ... environment={environment} canSwitchEnvironment={isAdmin} testData={testData} />`
-   with `isAdmin = useFeedbackAdmin(db, user.uid)`. "Acerca de" then shows "Entorno": "Cambiar a
-   Pruebas" for admins and, in Pruebas, "Volver a Real" for everyone (also on the login screen,
-   where there is no user yet). Pass `environment` to `FeedbackButton` too: in Pruebas it says
+   `environment={environment} canSwitchEnvironment={isAdmin} testData={testData}` on `AboutPage`
+   (and `environment` on the sign-in screen's `AboutButton`), with `isAdmin = useFeedbackAdmin(db, user.uid)`.
+   "Acerca de" then shows "Entorno": "Cambiar a Pruebas" for admins and, in Pruebas, "Volver a
+   Real" for everyone (also on the sign-in screen, where there is no user yet). Pass `environment` to `FeedbackButton` too: in Pruebas it says
    the feedback stays in the dev project.
 5. Test data (optional): `testData: TestDataActions` = `{ sizes, generate(sizeId, onProgress),
    clear(onProgress) }`, the app's own generator, shown in "Acerca de" only in Pruebas. Build the

@@ -18,7 +18,9 @@ interface EnvironmentPanelProps {
     environment: AppEnvironment;
     canSwitch: boolean;
     testData?: TestDataActions;
+    /** Heading level of the card: 2 on the "Acerca de" screen, 3 in its dialog. */
+    level?: 2 | 3;
 }
-/** "Entorno" (Environment) section of "Acerca de" (About): Real / Pruebas switch and test data. */
-export declare function EnvironmentPanel({ environment, canSwitch, testData }: EnvironmentPanelProps): import("react").JSX.Element | null;
+/** "Entorno" (Environment) card of "Acerca de" (About): Real / Pruebas switch and test data. */
+export declare function EnvironmentPanel({ environment, canSwitch, testData, level }: EnvironmentPanelProps): import("react").JSX.Element | null;
 export {};

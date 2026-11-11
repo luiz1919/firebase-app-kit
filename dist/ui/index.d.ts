@@ -1,5 +1,9 @@
 export { AboutButton } from './AboutButton.tsx';
-export type { AboutButtonProps, Developer } from './AboutButton.tsx';
+export type { AboutButtonProps } from './AboutButton.tsx';
+export { AboutPage } from './AboutPage.tsx';
+export type { AboutPageProps } from './AboutPage.tsx';
+export { DEFAULT_DEVELOPER } from './AboutSections.tsx';
+export type { AboutInfo, AboutLink, Developer } from './AboutSections.tsx';
 export { AiSettingsPanel } from './AiSettingsPanel.tsx';
 export type { AiSettingsPanelProps } from './AiSettingsPanel.tsx';
 export { EnvBanner } from './EnvBanner.tsx';

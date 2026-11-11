@@ -8,6 +8,32 @@ Versions up to v0.11.0 were written afterwards from the tags, the commits and th
 
 ## Unreleased
 
+## [v0.15.0] - 2026-11-11
+
+### Added
+
+- `AboutPage` (ui): "Acerca de" (About) as a screen for the app's "Ajustes" (Settings), with the
+  app's icon, name and tagline, a description and cards: "Versión", "Entorno" (Pruebas),
+  "Tecnología", "Privacidad" and "Enlaces" (placeholders show "Próximamente"). Based on TV
+  Launcher's About screen. Types `AboutInfo`, `AboutLink`; `DEFAULT_DEVELOPER`.
+- `--kit-card-radius` and `--kit-card-shadow` CSS variables for those cards.
+
+### Changed
+
+- `AboutButton` is now a 40 px info icon (instead of the underlined "Acerca de" link) and its
+  dialog shows the same cards as `AboutPage`. It takes the same props (`AboutInfo`): the old ones
+  still work, the new ones (icon, tagline, description, technology, privacy, privacyNote, links,
+  disclaimer) are optional.
+- The "Entorno" section is a card; "Última compilación" reads "Compilación".
+- `Developer.url` may be '' (the name without a link).
+
+### Upgrade
+
+- Move "Acerca de" into the app's "Ajustes": a row that opens `<AboutPage {...about} back={...} />`
+  (one `AboutInfo` object per app, e.g. `src/about.ts`), and remove `<AboutButton>` from the
+  header. Keep `<AboutButton {...about} environment={environment} />` on the sign-in screen,
+  placed with the header's icons (it is a 40 px icon now): it is the way back from Pruebas there.
+
 ## [v0.14.0] - 2026-11-10
 
 ### Added
@@ -286,6 +312,7 @@ Versions up to v0.11.0 were written afterwards from the tags, the commits and th
 
 - Never tagged: commit [93c55b4](https://github.com/luiz1919/firebase-app-kit/commit/93c55b4).
 
+[v0.15.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.14.0...v0.15.0
 [v0.14.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.13.0...v0.14.0
 [v0.13.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.12.0...v0.13.0
 [v0.12.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.11.0...v0.12.0
