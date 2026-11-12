@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { ChangeEvent, Dispatch, FormEvent, SetStateAction } from 'react'
 import type { Firestore } from 'firebase/firestore'
 import { editFeedback, feedbackDraftProblem, submitFeedback } from '../feedback.ts'
@@ -11,7 +11,7 @@ import type { FeedbackItem, FeedbackKind } from '../utils/feedback.ts'
 import { imageToJpeg } from '../utils/image.ts'
 import { CloseIcon, ImagePlusIcon } from './icons.tsx'
 import { EMPTY_DRAFT } from './feedbackDraft.ts'
-import type { DraftState, FeedbackUser } from './feedbackDraft.ts'
+import type { DraftScreenshot, DraftState, FeedbackUser } from './feedbackDraft.ts'
 import { writeErrorMessage } from './feedbackErrors.ts'
 
 /** Longest side of a screenshot: phone screenshots stay readable and fit in one chunk. */
@@ -37,7 +37,7 @@ interface FeedbackFormProps {
   build: BuildInfo
   draft: DraftState
   setDraft: Dispatch<SetStateAction<DraftState>>
-  /** The item being edited (only kind, title and description), or null for new feedback. */
+  /** The item being edited (kind, title, description, more screenshots), or null for new feedback. */
   editing: FeedbackItem | null
   items: FeedbackItem[]
   onOpen: (id: string) => void
@@ -49,13 +49,26 @@ export function FeedbackForm({ db, user, appName, build, draft, setDraft, editin
   const [edit, setEdit] = useState(() => ({ kind: editing?.kind ?? 'bug', title: editing?.title ?? '', text: editing?.text ?? '' }))
   const [error, setError] = useState('')
   const [processing, setProcessing] = useState(false)
+  // Screenshots added while editing: unlike the new-feedback draft, they go with the form.
+  const [added, setAdded] = useState<DraftScreenshot[]>([])
+  const addedUrls = useRef<string[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
   const id = useId()
   const kind = editing ? edit.kind : draft.kind
   const title = editing ? edit.title : draft.title
   const text = editing ? edit.text : draft.text
   const similar = editing ? [] : similarFeedback(`${title}\n${text}`, items)
-  const room = FEEDBACK_LIMITS.screenshots - draft.screenshots.length
+  const sent = editing?.screenshotCount ?? 0
+  const screenshots = editing ? added : draft.screenshots
+  const room = FEEDBACK_LIMITS.screenshots - sent - screenshots.length
+
+  useEffect(() => { addedUrls.current = added.map((entry) => entry.url) }, [added])
+  useEffect(() => () => { for (const url of addedUrls.current) URL.revokeObjectURL(url) }, [])
+
+  function setScreenshots(update: (current: DraftScreenshot[]) => DraftScreenshot[]) {
+    if (editing) setAdded(update)
+    else setDraft((current) => ({ ...current, screenshots: update(current.screenshots) }))
+  }
 
   function setKind(next: FeedbackKind) {
     if (editing) setEdit((current) => ({ ...current, kind: next }))
@@ -82,9 +95,9 @@ export function FeedbackForm({ db, user, appName, build, draft, setDraft, editin
       for (const file of files.slice(0, Math.max(room, 0))) {
         const image = await imageToJpeg(file, { maxSide: SCREENSHOT_SIDE })
         const url = URL.createObjectURL(new Blob([image.bytes], { type: 'image/jpeg' }))
-        setDraft((current) => ({ ...current, screenshots: [...current.screenshots, { image, url }].slice(0, FEEDBACK_LIMITS.screenshots) }))
+        setScreenshots((current) => [...current, { image, url }].slice(0, FEEDBACK_LIMITS.screenshots - sent))
       }
-      if (files.length > room) setError(`Solo se pueden adjuntar ${FEEDBACK_LIMITS.screenshots} capturas.`)
+      if (files.length > room) setError(`Solo se pueden adjuntar ${FEEDBACK_LIMITS.screenshots} capturas${sent > 0 ? ' en total' : ''}.`)
     } catch (imageError) {
       setError(imageError instanceof Error ? imageError.message : 'No se ha podido procesar la imagen.')
     } finally {
@@ -95,15 +108,13 @@ export function FeedbackForm({ db, user, appName, build, draft, setDraft, editin
   }
 
   function removeScreenshot(index: number) {
-    setDraft((current) => {
-      URL.revokeObjectURL(current.screenshots[index].url)
-      return { ...current, screenshots: current.screenshots.filter((_, position) => position !== index) }
-    })
+    URL.revokeObjectURL(screenshots[index].url)
+    setScreenshots((current) => current.filter((_, position) => position !== index))
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const problem = feedbackDraftProblem({ title, text }, editing ? 0 : draft.screenshots.length)
+    const problem = feedbackDraftProblem({ title, text }, sent + screenshots.length)
     if (problem) {
       setError(problem)
       return
@@ -111,7 +122,8 @@ export function FeedbackForm({ db, user, appName, build, draft, setDraft, editin
     const savedLater = !navigator.onLine
     try {
       if (editing) {
-        editFeedback(db, editing.id, edit).catch((saveError: unknown) => onWriteError(writeErrorMessage(saveError, 'guardar el comentario')))
+        editFeedback(db, editing, { ...edit, screenshots: added.map((entry) => entry.image) })
+          .catch((saveError: unknown) => onWriteError(writeErrorMessage(saveError, 'guardar el comentario')))
         onDone(editing.id, savedLater ? 'Cambios guardados en este dispositivo: se subirán al volver la conexión.' : 'Cambios guardados.')
         return
       }
@@ -178,28 +190,35 @@ export function FeedbackForm({ db, user, appName, build, draft, setDraft, editin
         </div>
       )}
 
+      <div className="kit-field">
+        <span className="kit-feedback-label">
+          Capturas{' '}
+          <span className="kit-feedback-optional">
+            {sent === 0 ? `(opcional, hasta ${FEEDBACK_LIMITS.screenshots})` : `(ya tiene ${sent}; hasta ${FEEDBACK_LIMITS.screenshots} en total)`}
+          </span>
+        </span>
+        {screenshots.length > 0 && (
+          <ul className="kit-feedback-shots">
+            {screenshots.map((entry, index) => (
+              <li key={entry.url} className="kit-feedback-shot">
+                <img src={entry.url} alt={`Captura ${sent + index + 1}`} />
+                <button className="kit-icon-button kit-feedback-shot-remove" type="button" onClick={() => removeScreenshot(index)} aria-label={`Quitar la captura ${sent + index + 1}`} title="Quitar"><CloseIcon size={16} /></button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {room > 0 && (
+          <button className="kit-secondary-button kit-feedback-add-shot" type="button" disabled={processing} onClick={() => fileRef.current?.click()}>
+            <ImagePlusIcon />{processing ? 'Preparando…' : 'Añadir captura'}
+          </button>
+        )}
+        {editing && room <= 0 && screenshots.length === 0 && <p className="kit-hint">Ya tiene las {FEEDBACK_LIMITS.screenshots} capturas que se pueden adjuntar.</p>}
+        {editing && screenshots.length > 0 && <p className="kit-hint">Una vez guardadas, las capturas ya no se pueden quitar.</p>}
+        <input ref={fileRef} className="kit-sr-only" type="file" accept="image/*" multiple tabIndex={-1} aria-hidden="true" onChange={(event) => void addScreenshots(event)} />
+      </div>
+
       {!editing && (
         <>
-          <div className="kit-field">
-            <span className="kit-feedback-label">Capturas <span className="kit-feedback-optional">(opcional, hasta {FEEDBACK_LIMITS.screenshots})</span></span>
-            {draft.screenshots.length > 0 && (
-              <ul className="kit-feedback-shots">
-                {draft.screenshots.map((entry, index) => (
-                  <li key={entry.url} className="kit-feedback-shot">
-                    <img src={entry.url} alt={`Captura ${index + 1}`} />
-                    <button className="kit-icon-button kit-feedback-shot-remove" type="button" onClick={() => removeScreenshot(index)} aria-label={`Quitar la captura ${index + 1}`} title="Quitar"><CloseIcon size={16} /></button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {room > 0 && (
-              <button className="kit-secondary-button kit-feedback-add-shot" type="button" disabled={processing} onClick={() => fileRef.current?.click()}>
-                <ImagePlusIcon />{processing ? 'Preparando…' : 'Añadir captura'}
-              </button>
-            )}
-            <input ref={fileRef} className="kit-sr-only" type="file" accept="image/*" multiple tabIndex={-1} aria-hidden="true" onChange={(event) => void addScreenshots(event)} />
-          </div>
-
           <label className="kit-checkbox">
             <input
               type="checkbox"
@@ -216,7 +235,7 @@ export function FeedbackForm({ db, user, appName, build, draft, setDraft, editin
 
       <p className="kit-hint">
         Todos los usuarios de {appName} verán el título, la descripción y tu nombre ({feedbackAuthorName(user.email ?? '')}).
-        {!editing && ' Las capturas y los datos técnicos solo los verán tú y el administrador.'}
+        {editing ? ' Las capturas solo las verán tú y el administrador.' : ' Las capturas y los datos técnicos solo los verán tú y el administrador.'}
       </p>
 
       {error && <p className="kit-error" role="alert">{error}</p>}

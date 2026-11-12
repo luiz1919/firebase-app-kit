@@ -10,6 +10,26 @@ Versions up to v0.11.0 were written afterwards from the tags, the commits and th
 
 _Nothing yet._
 
+## [v0.20.0] - 2026-11-12
+
+### Changed
+
+- Feedback (`FeedbackButton`): editing your own feedback can add screenshots ("Añadir captura"),
+  up to 3 in all; the form says how many it has. Screenshots already sent stay (they cannot be
+  removed or replaced), and technical details still only go with new feedback.
+- `editFeedback(db, item, changes)` takes the item (`{ id, screenshotCount }`) instead of its id,
+  and `changes.screenshots` (type `FeedbackEdit`) adds JPEGs after the existing ones in the same batch.
+- Feedback rules (`rules/feedback.rules`): the author's edit may raise `screenshotCount` (up to 3)
+  and create the new screenshots after the existing ones, never over them.
+
+### Upgrade
+
+- Update the app's rules block (`npx firebase-app-kit rules`), run its rules tests and publish
+  `firestore.rules` (the deploy refuses an outdated block; it publishes the dev project's rules,
+  and production's with `publishFirestoreRules`). Until then, adding a screenshot when editing is
+  denied and the dialog shows the save error.
+- Only if the app calls `editFeedback` itself: pass the item instead of its id.
+
 ## [v0.19.0] - 2026-11-12
 
 ### Changed
@@ -374,6 +394,7 @@ _Nothing yet._
 
 - Never tagged: commit [93c55b4](https://github.com/luiz1919/firebase-app-kit/commit/93c55b4).
 
+[v0.20.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.19.0...v0.20.0
 [v0.19.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.18.0...v0.19.0
 [v0.18.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.17.0...v0.18.0
 [v0.17.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.16.0...v0.17.0

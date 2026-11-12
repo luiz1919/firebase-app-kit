@@ -40,12 +40,18 @@ export declare function watchFeedbackAdmin(db: Firestore, uid: string, onChange:
 export declare function watchUnreadFeedbackReplies(db: Firestore, uid: string, onCount: (count: number) => void): Unsubscribe;
 /** Follows how many items are waiting for an admin (status "new"). */
 export declare function watchNewFeedbackCount(db: Firestore, onCount: (count: number) => void): Unsubscribe;
-/** The author changes the kind, the title and the description (feedback without a title gets one). */
-export declare function editFeedback(db: Firestore, id: string, changes: {
+export interface FeedbackEdit {
     kind: FeedbackKind;
     title: string;
     text: string;
-}): Promise<void>;
+    /** Screenshots to add after the existing ones (up to FEEDBACK_LIMITS.screenshots in all). */
+    screenshots?: readonly JpegImage[];
+}
+/**
+ * The author changes the kind, the title and the description (feedback without a title gets one)
+ * and may add screenshots, in one batch. Screenshots already sent stay: they are never replaced.
+ */
+export declare function editFeedback(db: Firestore, item: Pick<FeedbackItem, 'id' | 'screenshotCount'>, changes: FeedbackEdit): Promise<void>;
 /** The author has seen the reply. */
 export declare const markFeedbackReplyRead: (db: Firestore, id: string) => Promise<void>;
 export interface FeedbackManagement {

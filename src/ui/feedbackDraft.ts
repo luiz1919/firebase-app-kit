@@ -6,7 +6,7 @@ export interface FeedbackUser {
   email: string | null
 }
 
-interface DraftScreenshot {
+export interface DraftScreenshot {
   image: JpegImage
   /** Object URL of the thumbnail (revoked when removed or sent). */
   url: string

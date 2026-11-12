@@ -9,4 +9,4 @@ export type { FirebaseServices, InitFirebaseOptions } from './firebase.ts';
 export { TEST_DATA_BATCH_SIZE, commitInBatches } from './testData.ts';
 export type { BatchWrite, WriteProgress } from './testData.ts';
 export { FEEDBACK_COLLECTION, FEEDBACK_LIST_LIMIT, deleteFeedback, editFeedback, feedbackDraftProblem, feedbackManagementUpdate, manageFeedback, markFeedbackReplyRead, readFeedbackDiagnostics, readFeedbackScreenshots, submitFeedback, watchFeedback, watchFeedbackAdmin, watchNewFeedbackCount, watchUnreadFeedbackReplies, } from './feedback.ts';
-export type { FeedbackAuthor, FeedbackDraft, FeedbackManagement } from './feedback.ts';
+export type { FeedbackAuthor, FeedbackDraft, FeedbackEdit, FeedbackManagement } from './feedback.ts';

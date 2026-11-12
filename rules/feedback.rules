@@ -3,8 +3,9 @@
     // edit it here: update it with `npx firebase-app-kit rules` (the deploy fails if it is outdated).
     // Every signed-in user reads the feedback (so nobody repeats a suggestion); only its author
     // edits the kind, the title and the description (text); admins (a document admins/{uid}, created by hand in the Firebase
-    // console) set the status, the reply and the version, and delete. Screenshots and technical
-    // details only travel with new feedback, and only its author and admins can read them.
+    // console) set the status, the reply and the version, and delete. Technical details only travel
+    // with new feedback; its author can add screenshots later (never replace them), up to 3. Only
+    // the author and admins can read either.
     function feedbackSignedIn() {
       return request.auth != null
         && request.auth.token.get('firebase', {}).get('sign_in_provider', '') != 'anonymous';
@@ -22,6 +23,12 @@
     function feedbackCreatingOwn(feedbackId) {
       return feedbackSignedIn() && !exists(feedbackPath(feedbackId))
         && getAfter(feedbackPath(feedbackId)).data.createdBy == request.auth.uid;
+    }
+    // The author's edit adds a screenshot after the ones it had (screenshotCount before the edit).
+    function feedbackAddingOwnScreenshot(feedbackId, index) {
+      return feedbackSignedIn() && exists(feedbackPath(feedbackId))
+        && get(feedbackPath(feedbackId)).data.createdBy == request.auth.uid
+        && int(index) >= get(feedbackPath(feedbackId)).data.screenshotCount;
     }
     function feedbackString(value, min, max) {
       return value is string && value.size() >= min && value.size() <= max;
@@ -48,15 +55,18 @@
         && data.reply == '' && data.repliedAt == null && data.replyRead == true
         && data.resolvedVersion == '';
     }
-    // The author edits the kind, the title and the description (stamping editedAt) and marks the
-    // reply as read (also on feedback without a title).
+    // The author edits the kind, the title and the description and adds screenshots (stamping
+    // editedAt), and marks the reply as read (also on feedback without a title).
     function feedbackAuthorEdit() {
-      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      let data = request.resource.data;
+      let changed = data.diff(resource.data).affectedKeys();
+      let edited = changed.hasAny(['kind', 'title', 'text', 'editedAt', 'screenshotCount']);
       return resource.data.createdBy == request.auth.uid
-        && changed.hasOnly(['kind', 'title', 'text', 'editedAt', 'replyRead'])
-        && (!changed.hasAny(['kind', 'title', 'text', 'editedAt']) || feedbackContent(request.resource.data))
-        && (!changed.hasAny(['kind', 'title', 'text', 'editedAt']) || request.resource.data.editedAt == request.time)
-        && (!changed.hasAny(['replyRead']) || request.resource.data.replyRead == true);
+        && changed.hasOnly(['kind', 'title', 'text', 'editedAt', 'screenshotCount', 'replyRead'])
+        && (!edited || (feedbackContent(data) && data.editedAt == request.time))
+        && (!changed.hasAny(['screenshotCount'])
+          || (data.screenshotCount is int && data.screenshotCount > resource.data.screenshotCount && data.screenshotCount <= 3))
+        && (!changed.hasAny(['replyRead']) || data.replyRead == true);
     }
     // Admins set the status, the reply (stamping repliedAt, or null when it is cleared) and the version.
     function feedbackAdminEdit() {
@@ -83,8 +93,8 @@
       // Screenshots: JPEG in one chunk each (firebase-app-kit chunk format), 0 to screenshotCount - 1.
       match /screenshots/{index} {
         allow read: if feedbackAuthorOrAdmin(feedbackId);
-        allow create: if feedbackCreatingOwn(feedbackId)
-          && index in ['0', '1', '2']
+        allow create: if index in ['0', '1', '2']
+          && (feedbackCreatingOwn(feedbackId) || feedbackAddingOwnScreenshot(feedbackId, index))
           && int(index) < getAfter(feedbackPath(feedbackId)).data.screenshotCount
           && request.resource.data.keys().hasOnly(['index', 'type', 'size', 'width', 'height', 'chunkCount'])
           && request.resource.data.keys().hasAll(['index', 'type', 'size', 'width', 'height', 'chunkCount'])
@@ -98,7 +108,8 @@
 
         match /chunks/{chunkId} {
           allow read: if feedbackAuthorOrAdmin(feedbackId);
-          allow create: if feedbackCreatingOwn(feedbackId)
+          allow create: if index in ['0', '1', '2']
+            && (feedbackCreatingOwn(feedbackId) || feedbackAddingOwnScreenshot(feedbackId, index))
             && chunkId == '0000'
             && request.resource.data.keys().hasOnly(['index', 'data'])
             && request.resource.data.keys().hasAll(['index', 'data'])

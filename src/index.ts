@@ -14,4 +14,4 @@ export {
   markFeedbackReplyRead, readFeedbackDiagnostics, readFeedbackScreenshots, submitFeedback, watchFeedback, watchFeedbackAdmin,
   watchNewFeedbackCount, watchUnreadFeedbackReplies,
 } from './feedback.ts'
-export type { FeedbackAuthor, FeedbackDraft, FeedbackManagement } from './feedback.ts'
+export type { FeedbackAuthor, FeedbackDraft, FeedbackEdit, FeedbackManagement } from './feedback.ts'

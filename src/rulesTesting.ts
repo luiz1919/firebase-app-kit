@@ -154,7 +154,7 @@ export function feedbackRulesTests({ environment, assertSucceeds, assertFails, r
     await assertSucceeds(setDoc(doc(db, 'feedback', 'valid'), newFeedback(ALICE)))
   })
 
-  test('feedback rules: screenshots and technical details only travel with new feedback', async () => {
+  test('feedback rules: technical details only travel with new feedback, screenshots also with an edit', async () => {
     await fresh()
     const db = as(ALICE)
     const shot = { index: 0, type: 'image/jpeg', size: 4, width: 10, height: 10, chunkCount: 1 }
@@ -188,18 +188,58 @@ export function feedbackRulesTests({ environment, assertSucceeds, assertFails, r
     await assertFails(attempt({ hasDiagnostics: true }, [['private/diagnostics', { ...diagnostics, email: 'x' }]]))
   })
 
+  test('feedback rules: the author adds screenshots when editing, after the ones sent and up to 3', async () => {
+    await fresh()
+    await seedAdmin()
+    const id = await send(ALICE, { screenshots: [jpeg(120)] })
+    const edit = { kind: 'bug' as const, title: 'La lista no se guarda', text: '' }
+    const sent = { id, screenshotCount: 1 }
+    await assertFails(editFeedback(as(BOB), sent, { ...edit, screenshots: [jpeg(40)] }))
+    await assertFails(editFeedback(as(ADMIN), sent, { ...edit, screenshots: [jpeg(40)] }))
+    await assertSucceeds(editFeedback(as(ALICE), sent, { ...edit, screenshots: [jpeg(40)] }))
+    const edited = await itemAs(ALICE, id)
+    assert.equal(edited.screenshotCount, 2)
+    assert.ok(edited.editedAt instanceof Date)
+    assert.deepEqual((await assertSucceeds(readFeedbackScreenshots(as(ALICE), edited))).map((blob) => blob.size), [120, 40])
+    assert.equal((await assertSucceeds(readFeedbackScreenshots(as(ADMIN), edited))).length, 2)
+    await assert.rejects(editFeedback(as(ALICE), edited, { ...edit, screenshots: [jpeg(10), jpeg(20)] }), /hasta 3 capturas/)
+
+    // Writes the kit never makes: replacing a screenshot, going past 3, adding without the edit, lowering the count.
+    const db = as(ALICE)
+    const parent = doc(db, 'feedback', id)
+    const shot = (index: number) => ({ index, type: 'image/jpeg', size: 4, width: 10, height: 10, chunkCount: 1 })
+    const chunk = { index: 0, data: Bytes.fromUint8Array(Uint8Array.of(0xff, 0xd8, 0xff, 0x00)) }
+    const attempt = (count: number | null, indexes: number[]) => {
+      const batch = writeBatch(db)
+      if (count !== null) batch.update(parent, { screenshotCount: count, editedAt: serverTimestamp() })
+      for (const index of indexes) {
+        batch.set(doc(parent, `screenshots/${index}`), shot(index))
+        batch.set(doc(parent, `screenshots/${index}/chunks/0000`), chunk)
+      }
+      return batch.commit()
+    }
+    await assertFails(attempt(3, [1, 2]))
+    await assertFails(attempt(4, [2]))
+    await assertFails(attempt(2, [2]))
+    await assertFails(attempt(null, [2]))
+    await assertFails(updateDoc(parent, { screenshotCount: 1, editedAt: serverTimestamp() }))
+    await assertFails(updateDoc(parent, { screenshotCount: 3 }))
+    await assertSucceeds(attempt(3, [2]))
+    assert.equal((await itemAs(ALICE, id)).screenshotCount, 3)
+  })
+
   test('feedback rules: only the author edits the kind, the title and the description', async () => {
     await fresh()
     await seedAdmin()
     const id = await send(ALICE)
-    await assertSucceeds(editFeedback(as(ALICE), id, { kind: 'idea', title: 'Guardar sin conexión', text: '' }))
+    await assertSucceeds(editFeedback(as(ALICE), { id, screenshotCount: 0 }, { kind: 'idea', title: 'Guardar sin conexión', text: '' }))
     const saved = await itemAs(ALICE, id)
     assert.equal(saved.kind, 'idea')
     assert.equal(saved.title, 'Guardar sin conexión')
     assert.equal(saved.text, '')
     assert.ok(saved.editedAt instanceof Date)
-    await assertFails(editFeedback(as(BOB), id, { kind: 'bug', title: 'Cambiado por otro', text: '' }))
-    await assertFails(editFeedback(as(ADMIN), id, { kind: 'bug', title: 'Cambiado por el admin', text: '' }))
+    await assertFails(editFeedback(as(BOB), { id, screenshotCount: 0 }, { kind: 'bug', title: 'Cambiado por otro', text: '' }))
+    await assertFails(editFeedback(as(ADMIN), { id, screenshotCount: 0 }, { kind: 'bug', title: 'Cambiado por el admin', text: '' }))
     const alice = doc(as(ALICE), 'feedback', id)
     await assertFails(updateDoc(alice, { text: 'Sin fecha de edición' }))
     await assertFails(updateDoc(alice, { title: '', editedAt: serverTimestamp() }))
@@ -221,7 +261,7 @@ export function feedbackRulesTests({ environment, assertSucceeds, assertFails, r
     await assertSucceeds(manageFeedback(as(ADMIN), untitled, { status: 'in-progress', reply: 'Lo miro', resolvedVersion: '' }, ADMIN))
     await assertSucceeds(updateDoc(doc(as(ALICE), 'feedback', id), { replyRead: true }))
     await assertFails(updateDoc(doc(as(ALICE), 'feedback', id), { text: 'Sin título', editedAt: serverTimestamp() }))
-    await assertSucceeds(editFeedback(as(ALICE), id, { kind: 'bug', title: untitled.title, text: untitled.text }))
+    await assertSucceeds(editFeedback(as(ALICE), untitled, { kind: 'bug', title: untitled.title, text: untitled.text }))
     assert.equal((await itemAs(BOB, id)).title, 'La lista no se guarda')
   })
 

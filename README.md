@@ -256,9 +256,10 @@ offline):
 | `feedback/{id}/private/diagnostics` | the author and admins | app version/commit, screen (`#/route`), browser, language, viewport, online, installed PWA, last 20 errors |
 | `admins/{uid}` | its own user | marks the app's admins; created by hand in the Firebase console |
 
-Only the author edits the kind, the title and the description; admins set the status (Nuevo, En curso, Resuelto,
-Descartado), reply (the author gets a "new reply" count on the icon) and the version that solved
-it, and delete. Screenshots and technical details can only be added together with new feedback.
+Only the author edits the kind, the title and the description, and adds screenshots up to 3 in
+all (those already sent cannot be removed or replaced); admins set the status (Nuevo, En curso,
+Resuelto, Descartado), reply (the author gets a "new reply" count on the icon) and the version
+that solved it, and delete. Technical details can only be sent together with new feedback.
 Feedback sent with v0.12.0 has no title: the app shows its first line as the title and the rest as
 the description, and its author's next edit saves them that way.
 

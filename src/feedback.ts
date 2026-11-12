@@ -5,7 +5,7 @@
 import {
   collection, doc, getDoc, limit, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where, writeBatch,
 } from 'firebase/firestore'
-import type { DocumentReference, Firestore, Unsubscribe } from 'firebase/firestore'
+import type { DocumentReference, Firestore, Unsubscribe, WriteBatch } from 'firebase/firestore'
 import { readChunkedFile, stageChunkedFile, stageChunkedFileDelete } from './chunks.ts'
 import { FEEDBACK_LIMITS, cleanFeedbackText, cleanFeedbackTitle, feedbackFromData, sortFeedback } from './utils/feedback.ts'
 import type { FeedbackDiagnostics, FeedbackItem, FeedbackKind, FeedbackStatus } from './utils/feedback.ts'
@@ -35,6 +35,12 @@ export interface FeedbackDraft {
 const feedbackRef = (db: Firestore, id: string) => doc(db, FEEDBACK_COLLECTION, id)
 const screenshotRef = (parent: DocumentReference, index: number) => doc(parent, 'screenshots', String(index))
 const diagnosticsRef = (parent: DocumentReference) => doc(parent, 'private', 'diagnostics')
+
+function stageScreenshot(batch: WriteBatch, parent: DocumentReference, index: number, image: JpegImage) {
+  stageChunkedFile(batch, screenshotRef(parent, index), image.bytes, {
+    index, type: 'image/jpeg', size: image.bytes.length, width: image.width, height: image.height, chunkCount: 1,
+  })
+}
 
 /** Problem with a draft (in Spanish, for the user), or null if it can be sent. */
 export function feedbackDraftProblem(draft: { title: string; text: string }, screenshotCount = 0): string | null {
@@ -72,11 +78,7 @@ export function submitFeedback(db: Firestore, author: FeedbackAuthor, draft: Fee
     replyRead: true,
     resolvedVersion: '',
   })
-  draft.screenshots.forEach((image, index) => {
-    stageChunkedFile(batch, screenshotRef(parent, index), image.bytes, {
-      index, type: 'image/jpeg', size: image.bytes.length, width: image.width, height: image.height, chunkCount: 1,
-    })
-  })
+  draft.screenshots.forEach((image, index) => stageScreenshot(batch, parent, index, image))
   if (draft.diagnostics) batch.set(diagnosticsRef(parent), { context: draft.diagnostics.context, errors: draft.diagnostics.errors })
   return { id: parent.id, committed: batch.commit() }
 }
@@ -114,13 +116,30 @@ export function watchNewFeedbackCount(db: Firestore, onCount: (count: number) =>
   return onSnapshot(waiting, (snapshot) => onCount(snapshot.size), () => onCount(0))
 }
 
-/** The author changes the kind, the title and the description (feedback without a title gets one). */
-export function editFeedback(db: Firestore, id: string, changes: { kind: FeedbackKind; title: string; text: string }): Promise<void> {
-  const problem = feedbackDraftProblem(changes)
+export interface FeedbackEdit {
+  kind: FeedbackKind
+  title: string
+  text: string
+  /** Screenshots to add after the existing ones (up to FEEDBACK_LIMITS.screenshots in all). */
+  screenshots?: readonly JpegImage[]
+}
+
+/**
+ * The author changes the kind, the title and the description (feedback without a title gets one)
+ * and may add screenshots, in one batch. Screenshots already sent stay: they are never replaced.
+ */
+export function editFeedback(db: Firestore, item: Pick<FeedbackItem, 'id' | 'screenshotCount'>, changes: FeedbackEdit): Promise<void> {
+  const added = changes.screenshots ?? []
+  const problem = feedbackDraftProblem(changes, item.screenshotCount + added.length)
   if (problem) return Promise.reject(new Error(problem))
-  return updateDoc(feedbackRef(db, id), {
+  const parent = feedbackRef(db, item.id)
+  const batch = writeBatch(db)
+  batch.update(parent, {
     kind: changes.kind, title: cleanFeedbackTitle(changes.title), text: cleanFeedbackText(changes.text), editedAt: serverTimestamp(),
+    ...(added.length > 0 ? { screenshotCount: item.screenshotCount + added.length } : {}),
   })
+  added.forEach((image, offset) => stageScreenshot(batch, parent, item.screenshotCount + offset, image))
+  return batch.commit()
 }
 
 /** The author has seen the reply. */

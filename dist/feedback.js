@@ -11,6 +11,11 @@ export const FEEDBACK_LIST_LIMIT = 300;
 const feedbackRef = (db, id) => doc(db, FEEDBACK_COLLECTION, id);
 const screenshotRef = (parent, index) => doc(parent, 'screenshots', String(index));
 const diagnosticsRef = (parent) => doc(parent, 'private', 'diagnostics');
+function stageScreenshot(batch, parent, index, image) {
+    stageChunkedFile(batch, screenshotRef(parent, index), image.bytes, {
+        index, type: 'image/jpeg', size: image.bytes.length, width: image.width, height: image.height, chunkCount: 1,
+    });
+}
 /** Problem with a draft (in Spanish, for the user), or null if it can be sent. */
 export function feedbackDraftProblem(draft, screenshotCount = 0) {
     const title = cleanFeedbackTitle(draft.title);
@@ -51,11 +56,7 @@ export function submitFeedback(db, author, draft, appVersion) {
         replyRead: true,
         resolvedVersion: '',
     });
-    draft.screenshots.forEach((image, index) => {
-        stageChunkedFile(batch, screenshotRef(parent, index), image.bytes, {
-            index, type: 'image/jpeg', size: image.bytes.length, width: image.width, height: image.height, chunkCount: 1,
-        });
-    });
+    draft.screenshots.forEach((image, index) => stageScreenshot(batch, parent, index, image));
     if (draft.diagnostics)
         batch.set(diagnosticsRef(parent), { context: draft.diagnostics.context, errors: draft.diagnostics.errors });
     return { id: parent.id, committed: batch.commit() };
@@ -84,14 +85,23 @@ export function watchNewFeedbackCount(db, onCount) {
     const waiting = query(collection(db, FEEDBACK_COLLECTION), where('status', '==', 'new'));
     return onSnapshot(waiting, (snapshot) => onCount(snapshot.size), () => onCount(0));
 }
-/** The author changes the kind, the title and the description (feedback without a title gets one). */
-export function editFeedback(db, id, changes) {
-    const problem = feedbackDraftProblem(changes);
+/**
+ * The author changes the kind, the title and the description (feedback without a title gets one)
+ * and may add screenshots, in one batch. Screenshots already sent stay: they are never replaced.
+ */
+export function editFeedback(db, item, changes) {
+    const added = changes.screenshots ?? [];
+    const problem = feedbackDraftProblem(changes, item.screenshotCount + added.length);
     if (problem)
         return Promise.reject(new Error(problem));
-    return updateDoc(feedbackRef(db, id), {
+    const parent = feedbackRef(db, item.id);
+    const batch = writeBatch(db);
+    batch.update(parent, {
         kind: changes.kind, title: cleanFeedbackTitle(changes.title), text: cleanFeedbackText(changes.text), editedAt: serverTimestamp(),
+        ...(added.length > 0 ? { screenshotCount: item.screenshotCount + added.length } : {}),
     });
+    added.forEach((image, offset) => stageScreenshot(batch, parent, item.screenshotCount + offset, image));
+    return batch.commit();
 }
 /** The author has seen the reply. */
 export const markFeedbackReplyRead = (db, id) => updateDoc(feedbackRef(db, id), { replyRead: true });
