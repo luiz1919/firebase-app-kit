@@ -474,24 +474,30 @@ npm run test:rules  # the feedback rules in the Firestore emulator (port 8089; n
 
 To release a version:
 
-1. Write what changes for the apps under "## Unreleased" in [CHANGELOG.md](CHANGELOG.md) (with
-   an "### Upgrade" section if they must change something). No need to commit the work.
-2. Run the release (with `--check` first to only preview it and run the checks):
+1. Run the release; the work does not need to be committed, it goes into the release commit:
 
    ```bash
-   npm run release -- --minor -m "feedback goes back to the list when resolved"
+   npm run release -- --minor
    ```
 
-   `--patch`, `--minor` or `--major` (asked if missing); `-m` is the summary after `vX.Y.Z: ` (asked
-   if missing), and more `-m` add paragraphs at the end of the commit; `--yes` skips the
-   confirmation. The script checks git (on `main`, up to date with GitHub, the tag is free), shows
-   the version, the commit message and the files that go in, and asks. Then it writes the
-   version to `package.json` and `package-lock.json`, moves "Unreleased" to the new version (with
-   its compare link), runs `npm run check` (which rebuilds `dist/`) and, if rules files changed
-   since the last tag, `npm run test:rules`. If a check fails, the version and CHANGELOG go back.
-   Last, it commits everything (`dist/` included) as `vX.Y.Z: summary`, creates the annotated
-   tag and pushes both together. If only the push fails, it prints the command to push them.
-3. In each app: `npm install github:luiz1919/firebase-app-kit#v0.5.0`.
+   The script checks git (on `main`, up to date with GitHub, the tag is free), shows a summary
+   (version, CHANGELOG entries, commit message, files that go in) and asks once. Then it writes
+   the version to `package.json` and `package-lock.json`, adds the version to
+   [CHANGELOG.md](CHANGELOG.md) (with its compare link), runs `npm run check` (which rebuilds
+   `dist/`) and, if rules files changed since the last tag, `npm run test:rules`. If a check
+   fails, the version and CHANGELOG go back. Last, it commits everything (`dist/` included) as
+   `vX.Y.Z`, creates the annotated tag and pushes both together. If only the push fails, it
+   prints the command to push them.
+
+   The CHANGELOG gets the entries under "## Unreleased", written along with each change (what
+   the apps notice, plus an "### Upgrade" section if they must change something). With nothing
+   there, it lists the commit subjects since the last tag and the changed files instead: check
+   them in the summary and answer "n" to write proper entries first.
+
+   Options: `--patch`, `--minor` or `--major` (asked if missing); `-m "summary"` for a commit
+   subject `vX.Y.Z: summary` instead of `vX.Y.Z`, and more `-m` add paragraphs at the end of the
+   commit; `--yes` skips the question; `--check` only shows the summary and runs the checks.
+2. In each app: `npm install github:luiz1919/firebase-app-kit#v0.5.0`.
    The tag must be in the command: editing it by hand in `package.json` and
    running `npm install` is not enough, because npm does not re-resolve a git
    dependency that is already in `package-lock.json` (it says "up to date" and

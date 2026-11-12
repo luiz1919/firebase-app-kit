@@ -3,7 +3,7 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync 
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, test } from 'node:test'
-import { parseReleaseArgs, release, releaseCommitMessage } from '../scripts/release.ts'
+import { generatedNotes, parseReleaseArgs, release, releaseCommitMessage } from '../scripts/release.ts'
 import { git } from '../src/deploy.ts'
 import { todayIso } from '../src/utils/dates.ts'
 
@@ -52,9 +52,10 @@ function setupKit({ check = PASSING_CHECK, changelog = CHANGELOG } = {}) {
   return { dir, remote }
 }
 
-async function runRelease(dir: string, args: string[]) {
+async function runRelease(dir: string, args: string[], answers?: string[]) {
   const lines: string[] = []
-  const code = await release({ root: dir, args, ask: null, log: (line) => lines.push(line), stdio: 'ignore' })
+  const ask = answers ? async (question: string) => { lines.push(question); return answers.shift() ?? '' } : null
+  const code = await release({ root: dir, args, ask, log: (line) => lines.push(line), stdio: 'ignore' })
   return { code, output: lines.join('\n') }
 }
 
@@ -76,6 +77,15 @@ test('releaseCommitMessage: summary, CHANGELOG entries without # headings, then 
     'v1.2.0: new thing\n\nChanged:\n\n- One.\n\nUpgrade:\n\n- Run x.\n\nCo-Authored-By: A <a@b>',
   )
   assert.equal(releaseCommitMessage('v1.2.1', ['fix'], ['- Fixed.']), 'v1.2.1: fix\n\n- Fixed.')
+  assert.equal(releaseCommitMessage('v1.2.2', [], ['- Fixed.']), 'v1.2.2\n\n- Fixed.')
+})
+
+test('generatedNotes: the commit notes, then the changed files without dist/ and the CHANGELOG', () => {
+  assert.deepEqual(
+    generatedNotes(['feat(ui): dark mode', 'v0.17.0: old release'], ['CHANGELOG.md', 'dist/ui/a.js', 'src/ui/a.tsx', 'scripts/release.ts']),
+    ['Dark mode', 'Changed files: `src/ui/a.tsx`, `scripts/release.ts`.'],
+  )
+  assert.deepEqual(generatedNotes([], ['dist/a.js']), [])
 })
 
 test('a release commits the work, the version, the CHANGELOG and the build, tags it and pushes both', async () => {
@@ -118,13 +128,30 @@ test('if npm run check fails, the version and CHANGELOG go back and the work sta
   assert.equal(git(remote, ['tag', '-l', 'v0.18.0']), '')
 })
 
-test('without entries under "Unreleased" nothing is released', async () => {
-  const { dir } = setupKit({ changelog: '# Changelog\n\n## Unreleased\n\n_Nothing yet._\n\n## v0.17.0 - 2026-11-12\n\n- Filters.\n' })
-  const head = git(dir, ['rev-parse', 'HEAD'])
-  const { code, output } = await runRelease(dir, RELEASE_ARGS)
+const EMPTY_UNRELEASED = '# Changelog\n\n## Unreleased\n\n_Nothing yet._\n\n## v0.17.0 - 2026-11-12\n\n- Filters.\n'
+
+test('just --minor --yes: with nothing under "Unreleased", the CHANGELOG lists the commits and the changed files', async () => {
+  const { dir } = setupKit({ changelog: EMPTY_UNRELEASED })
+  git(dir, ['add', 'src/new.ts'])
+  git(dir, ['commit', '-q', '-m', 'feat: new helper'])
+  const { code, output } = await runRelease(dir, ['--minor', '--yes'])
+  assert.equal(code, 0, output)
+  assert.match(output, /nothing under "Unreleased", so v0\.18\.0/)
+  const changelog = readFileSync(join(dir, 'CHANGELOG.md'), 'utf8')
+  assert.match(changelog, new RegExp(`## Unreleased\\n\\n_Nothing yet._\\n\\n## v0\\.18\\.0 - ${todayIso()}\\n\\n- New helper\\n- Changed files: \`src/feedback\\.ts\`\\.\\n\\n## v0\\.17\\.0`))
+  assert.equal(git(dir, ['log', '-1', '--format=%B']), 'v0.18.0\n\n- New helper\n- Changed files: `src/feedback.ts`.')
+  assert.equal(git(dir, ['tag', '-l', '--format=%(contents:subject)', 'v0.18.0']), 'v0.18.0')
+  assert.equal(git(dir, ['status', '--porcelain']), '')
+})
+
+test('with no commits or changes since the last tag there is nothing to release', async () => {
+  const { dir } = setupKit({ changelog: EMPTY_UNRELEASED })
+  git(dir, ['checkout', '-q', '--', '.'])
+  rmSync(join(dir, 'src', 'new.ts'))
+  const { code, output } = await runRelease(dir, ['--minor', '--yes'])
   assert.equal(code, 1)
-  assert.match(output, /Nothing under "## Unreleased"/)
-  assert.equal(git(dir, ['rev-parse', 'HEAD']), head)
+  assert.match(output, /Nothing to release: no commits or changes since v0\.17\.0/)
+  assert.equal(git(dir, ['tag', '-l', 'v0.18.0']), '')
   assert.equal(JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).version, '0.17.0')
 })
 
@@ -153,10 +180,24 @@ test('--check runs the checks and changes nothing in git', async () => {
   assert.equal(readFileSync(join(dir, 'CHANGELOG.md'), 'utf8'), CHANGELOG)
 })
 
-test('without a terminal, the type, the summary and --yes must be given', async () => {
+test('without a terminal, the type and --yes must be given', async () => {
   const { dir } = setupKit()
   assert.equal((await runRelease(dir, ['-m', 'x', '--yes'])).code, 2)
-  assert.equal((await runRelease(dir, ['--minor', '--yes'])).code, 2)
-  assert.equal((await runRelease(dir, ['--minor', '-m', 'x'])).code, 2)
+  assert.equal((await runRelease(dir, ['--minor'])).code, 2)
   assert.equal(git(dir, ['tag', '-l', 'v0.18.0']), '')
+})
+
+test('in a terminal, just --minor shows the summary and asks once; "n" changes nothing', async () => {
+  const { dir } = setupKit()
+  const head = git(dir, ['rev-parse', 'HEAD'])
+  const { code, output } = await runRelease(dir, ['--minor'], ['n'])
+  assert.equal(code, 1)
+  assert.match(output, /💬 Commit:\n {3}v0\.18\.0\n/)
+  assert.match(output, /Release v0\.18\.0 and push it to GitHub\? \(y\/N\) \nCancelled: nothing changed\./)
+  assert.equal(git(dir, ['rev-parse', 'HEAD']), head)
+  assert.equal(JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).version, '0.17.0')
+
+  const accepted = await runRelease(dir, ['--minor'], ['s'])
+  assert.equal(accepted.code, 0, accepted.output)
+  assert.equal(git(dir, ['log', '-1', '--format=%s']), 'v0.18.0')
 })

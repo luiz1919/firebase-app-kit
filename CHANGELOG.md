@@ -8,7 +8,11 @@ Versions up to v0.11.0 were written afterwards from the tags, the commits and th
 
 ## Unreleased
 
-_Nothing yet._
+### Changed
+
+- Kit development: `npm run release -- --minor` is enough. The summary (`-m`) is optional (the
+  commit is then just `vX.Y.Z`), and with nothing under "Unreleased" the CHANGELOG lists the
+  commits since the last tag and the changed files instead of refusing the release.
 
 ## [v0.18.0] - 2026-11-12
 

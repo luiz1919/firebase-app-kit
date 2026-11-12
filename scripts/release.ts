@@ -1,10 +1,11 @@
 /**
- * Releases a version of the kit itself: `npm run release -- --minor -m "what it brings"`.
+ * Releases a version of the kit itself: `npm run release -- --minor`.
  *
  * Apps release with deploy(). The kit has no Hosting, and its release commit carries the work
  * itself (src/, dist/, docs), so uncommitted changes are expected here and go into that commit.
- * The apps read the CHANGELOG to know what to change, so a release without entries under
- * "## Unreleased" is refused instead of falling back to commit subjects.
+ * The CHANGELOG gets what was written under "## Unreleased" (what the apps must know, the
+ * upgrade steps); with nothing there, notes made from the commits and the changed files, which
+ * the summary shown before confirming lets you check.
  */
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -12,15 +13,17 @@ import { join } from 'node:path'
 import { createInterface } from 'node:readline/promises'
 import { fileURLToPath } from 'node:url'
 import {
-  VERSION_TYPES, addChangelogVersion, git, gitReleaseProblem, githubRepoUrl, incrementVersion, isSemver, lastReleaseTag,
-  pushRelease, releaseTag, tagExists, unreleasedNotes, writeVersion,
+  VERSION_TYPES, addChangelogVersion, commitSubjectsSince, git, gitReleaseProblem, githubRepoUrl, incrementVersion, isSemver,
+  lastReleaseTag, pushRelease, releaseNotes, releaseTag, tagExists, unreleasedNotes, writeVersion,
 } from '../src/deploy.ts'
 import type { VersionType } from '../src/deploy.ts'
 import { todayIso } from '../src/utils/dates.ts'
 
 const BRANCH = 'main'
 const CHANGELOG = 'CHANGELOG.md'
-const USAGE = 'Usage: npm run release -- --patch|--minor|--major -m "summary" [-m "another paragraph"] [--yes] [--check]'
+const USAGE = 'Usage: npm run release -- [--patch|--minor|--major] [-m "summary"] [-m "another paragraph"] [--yes] [--check]'
+/** Subject of this script's own commits ("v0.18.0" or "v0.18.0: summary"). */
+const KIT_RELEASE_SUBJECT = /^v\d+\.\d+\.\d+(:|$)/
 /** Changes here can break the apps' rules: then the emulator tests run too. */
 const RULES_FILES = /^(rules\/|src\/rules|tests\/emulator\/)/
 
@@ -60,14 +63,25 @@ export function parseReleaseArgs(args: readonly string[]): ReleaseArgs | null {
 }
 
 /**
- * The release commit message: "vX.Y.Z: summary", the CHANGELOG entries ("### Changed" as
- * "Changed:", git would read a leading # as a comment if the message is ever edited), then the
+ * The release commit message: "vX.Y.Z" (": summary" with -m), the CHANGELOG entries ("### Changed"
+ * as "Changed:", git would read a leading # as a comment if the message is ever edited), then the
  * extra paragraphs (e.g. a Co-Authored-By trailer).
  */
 export function releaseCommitMessage(tag: string, messages: readonly string[], entries: readonly string[]): string {
   const [summary, ...extra] = messages
   const body = entries.map((line) => line.replace(/^#{3,}\s+(.*)$/, '$1:'))
-  return [`${tag}: ${summary}`, '', ...body, ...extra.flatMap((paragraph) => ['', paragraph])].join('\n')
+  return [summary ? `${tag}: ${summary}` : tag, '', ...body, ...extra.flatMap((paragraph) => ['', paragraph])].join('\n')
+}
+
+/**
+ * CHANGELOG notes for a release with nothing under "Unreleased": the commits since the last tag
+ * (as an app's deploy does) and, since the kit's work usually goes uncommitted into the release
+ * commit, the files it changes. dist/ and the CHANGELOG are left out: they follow from the rest.
+ */
+export function generatedNotes(subjects: readonly string[], uncommittedFiles: readonly string[]): string[] {
+  const files = uncommittedFiles.filter((file) => !file.startsWith('dist/') && file !== CHANGELOG)
+  const work = subjects.filter((subject) => !KIT_RELEASE_SUBJECT.test(subject.trim()))
+  return [...releaseNotes(work), ...(files.length > 0 ? [`Changed files: ${files.map((file) => `\`${file}\``).join(', ')}.`] : [])]
 }
 
 /** Files that differ from `tag`, committed or not, new ones included. Without a tag, null (unknown). */
@@ -105,12 +119,12 @@ export interface ReleaseOptions {
 
 /**
  * Stops at the first step that fails and returns the exit code:
- * 1. git: on main, up to date with GitHub (fetched), the new tag free; entries under "Unreleased".
- * 2. Shows the version, the commit message and the uncommitted files that go in, and asks.
- * 3. Writes the version (package.json, package-lock.json), moves "Unreleased" to it in the
- *    CHANGELOG, runs `npm run check` (rebuilds dist/) and, if rules files changed since the last
+ * 1. git: on main, up to date with GitHub (fetched), the new tag free; something to release.
+ * 2. Shows the version, the CHANGELOG entries, the commit message and the uncommitted files that
+ *    go in, and asks (unless --yes).
+ * 3. Writes the version (package.json, package-lock.json), adds it to the CHANGELOG, runs `npm run check` (rebuilds dist/) and, if rules files changed since the last
  *    tag, `npm run test:rules`. If one fails, the version and CHANGELOG go back.
- * 4. Commits everything as "vX.Y.Z: summary", creates the annotated tag and pushes both together.
+ * 4. Commits everything as "vX.Y.Z", creates the annotated tag and pushes both together.
  *    If only the push fails, the commit and tag stay and it prints the push command.
  * --check runs steps 1 and 2, the checks of step 3 on the current files, and touches nothing in git.
  */
@@ -163,9 +177,6 @@ export async function release(options: ReleaseOptions): Promise<number> {
   if (!isSemver(current)) return fail(`The package.json version ("${String(current)}") is not in MAJOR.MINOR.PATCH format.`)
   const changelogPath = join(root, CHANGELOG)
   const changelog = existsSync(changelogPath) ? readFileSync(changelogPath, 'utf8') : null
-  const entries = unreleasedNotes(changelog)
-  if (!entries) return fail(`Nothing under "## Unreleased" in ${CHANGELOG}: write there what changes for the apps (and an "### Upgrade" section if they must change something), then run this again.`)
-
   let versionType = parsed.versionType
   if (!versionType) {
     if (!ask) return fail('No interactive terminal: pass --patch, --minor or --major.', 2)
@@ -181,14 +192,6 @@ export async function release(options: ReleaseOptions): Promise<number> {
   const tag = releaseTag(version)
   if (tagExists(root, tag)) return fail(`The tag ${tag} already exists: the package.json version (${current}) is behind the latest release.`)
 
-  const messages = [...parsed.messages]
-  if (messages.length === 0) {
-    if (!ask) return fail('No interactive terminal: pass the summary with -m "...".', 2)
-    const summary = (await ask(`\n💬 Summary, after "${tag}: " (one line): `)).trim()
-    if (!summary) return fail('The commit needs a summary.', 2)
-    messages.push(summary)
-  }
-  const message = releaseCommitMessage(tag, messages, entries)
   const previousTag = lastReleaseTag(root)
   const changed = changedSince(root, previousTag)
   const rulesChanged = Boolean(pkg.scripts?.['test:rules']) && (changed === null || changed.some((file) => RULES_FILES.test(file)))
@@ -197,8 +200,23 @@ export async function release(options: ReleaseOptions): Promise<number> {
   const staged = git(root, ['diff', '--cached', '--name-only']).split('\n').filter(Boolean)
   const pending = [...new Set([...staged, ...uncommitted])].sort()
 
+  const handWritten = unreleasedNotes(changelog)
+  let notes: string[] = []
+  if (!handWritten) {
+    try {
+      notes = generatedNotes(commitSubjectsSince(root, previousTag), pending)
+    } catch (error) {
+      return fail(`Could not read the commits since ${previousTag ?? 'the first one'}: ${errorText(error)}`)
+    }
+    if (notes.length === 0) return fail(`Nothing to release: no commits or changes since ${previousTag ?? 'the first commit'}.`)
+  }
+  const entries = handWritten ?? notes.map((note) => `- ${note}`)
+  const message = releaseCommitMessage(tag, parsed.messages, entries)
+
   log(`\n📦 ${current} -> ${version} (${versionType.toUpperCase()}), tag ${tag}`)
-  log(`📝 ${CHANGELOG}: the entries under "Unreleased" become ${tag} (${todayIso()}).`)
+  log(handWritten
+    ? `📝 ${CHANGELOG}: the entries under "Unreleased" become ${tag} (${todayIso()}).`
+    : `📝 ${CHANGELOG}: nothing under "Unreleased", so ${tag} (${todayIso()}) lists the commits since ${previousTag ?? 'the first one'} and the changed files.`)
   log(`💬 Commit:\n${message.split('\n').map((line) => `   ${line}`).join('\n')}`)
   log(pending.length > 0
     ? `📁 Uncommitted files that go into it, plus the version, ${CHANGELOG} and dist/:\n${pending.map((file) => `   ${file}`).join('\n')}`
@@ -222,7 +240,7 @@ export async function release(options: ReleaseOptions): Promise<number> {
 
   try {
     undoSteps.push(writeVersion(root, version))
-    writeFileSync(changelogPath, addChangelogVersion(changelog, { version, date: todayIso(), notes: [], previousTag, repoUrl }))
+    writeFileSync(changelogPath, addChangelogVersion(changelog, { version, date: todayIso(), notes, previousTag, repoUrl }))
     undoSteps.push(() => (changelog === null ? rmSync(changelogPath) : writeFileSync(changelogPath, changelog)))
   } catch (error) {
     return fail(`Could not write the version or ${CHANGELOG}: ${errorText(error)}`)
@@ -241,7 +259,7 @@ export async function release(options: ReleaseOptions): Promise<number> {
     undoSteps.push(() => git(root, ['reset', '-q']))
     git(root, ['commit', '-q', '--cleanup=whitespace', '-m', message])
     undoSteps.push(() => git(root, ['reset', '-q', '--soft', 'HEAD~1']))
-    git(root, ['tag', '-a', tag, '-m', `${tag}: ${messages[0]}`])
+    git(root, ['tag', '-a', tag, '-m', message.split('\n')[0]])
   } catch (error) {
     return fail(`Could not commit or tag: ${errorText(error)}`)
   }
