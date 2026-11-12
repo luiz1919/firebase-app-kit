@@ -9,6 +9,21 @@ export declare const FEEDBACK_KIND_BADGES: Readonly<Record<FeedbackKind, string>
 export declare const FEEDBACK_STATUSES: readonly ['new', 'in-progress', 'done', 'declined'];
 export type FeedbackStatus = (typeof FEEDBACK_STATUSES)[number];
 export declare const FEEDBACK_STATUS_LABELS: Readonly<Record<FeedbackStatus, string>>;
+/**
+ * Filters of the feedback list by status: the same word as the status, in plural ("En curso" shows
+ * the items marked "En curso"), so a filter never names something no item says.
+ */
+export declare const FEEDBACK_STATUS_FILTER_LABELS: Readonly<Record<FeedbackStatus, string>>;
+export type FeedbackFilter = 'all' | FeedbackStatus | 'mine';
+export interface FeedbackFilterOption {
+    id: FeedbackFilter;
+    label: string;
+    /** Shown when nothing matches. */
+    empty: string;
+    matches: (item: Pick<FeedbackItem, 'status' | 'createdBy'>) => boolean;
+}
+/** The list's filters, in order: "Todos", one per status, and "Míos" (sent by `uid`). */
+export declare function feedbackFilters(uid: string): FeedbackFilterOption[];
 /** Limits shared with the Firestore rules. */
 export declare const FEEDBACK_LIMITS: {
     readonly title: 120;

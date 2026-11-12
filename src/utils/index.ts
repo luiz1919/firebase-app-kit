@@ -15,10 +15,10 @@ export { ERROR_LOG_SIZE, appendErrorEntry, clearErrorLog, describeError, install
 export type { ErrorLogEntry } from './errorLog.ts'
 export {
   FEEDBACK_CONTEXT_LABELS, FEEDBACK_KINDS, FEEDBACK_KIND_BADGES, FEEDBACK_KIND_LABELS, FEEDBACK_LIMITS, FEEDBACK_STATUSES,
-  FEEDBACK_STATUS_LABELS, cleanFeedbackText, cleanFeedbackTitle, collectFeedbackContext, feedbackAuthorName, feedbackContextEntries, feedbackFromData,
-  feedbackTitle, feedbackToMarkdown, feedbackWords, formatFeedbackDate, githubIssueUrl, hasUnreadReply, isOpenFeedback, similarFeedback,
+  FEEDBACK_STATUS_FILTER_LABELS, FEEDBACK_STATUS_LABELS, cleanFeedbackText, cleanFeedbackTitle, collectFeedbackContext, feedbackAuthorName, feedbackContextEntries, feedbackFromData,
+  feedbackFilters, feedbackTitle, feedbackToMarkdown, feedbackWords, formatFeedbackDate, githubIssueUrl, hasUnreadReply, isOpenFeedback, similarFeedback,
   sortFeedback, splitUntitledFeedback,
 } from './feedback.ts'
-export type { FeedbackDiagnostics, FeedbackItem, FeedbackKind, FeedbackReportOptions, FeedbackStatus } from './feedback.ts'
+export type { FeedbackDiagnostics, FeedbackFilter, FeedbackFilterOption, FeedbackItem, FeedbackKind, FeedbackReportOptions, FeedbackStatus } from './feedback.ts'
 export { MAX_IMAGE_SIDE, fitWithin, imageToJpeg, imageToJpegBase64 } from './image.ts'
 export type { ImageToJpegOptions, JpegImage } from './image.ts'

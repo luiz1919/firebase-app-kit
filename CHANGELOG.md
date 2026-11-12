@@ -8,6 +8,21 @@ Versions up to v0.11.0 were written afterwards from the tags, the commits and th
 
 ## Unreleased
 
+## [v0.17.0] - 2026-11-12
+
+### Changed
+
+- Feedback list (`FeedbackButton`): the filters are the statuses, with the same words as the
+  badges and the admin's status menu: "Todos", "Nuevos", "En curso", "Resueltos", "Descartados"
+  and "Míos". "Abiertos" and "Cerrados" are gone (they named no status: an item marked "En
+  curso" showed under "Abiertos"). It opens on "Todos"; admins with new feedback still get
+  "Nuevos" first, and users with an unread reply "Míos".
+
+### Added
+
+- `feedbackFilters(uid)` and `FEEDBACK_STATUS_FILTER_LABELS` (utils), types `FeedbackFilter`,
+  `FeedbackFilterOption`.
+
 ## [v0.16.0] - 2026-11-12
 
 ### Added
@@ -330,6 +345,7 @@ Versions up to v0.11.0 were written afterwards from the tags, the commits and th
 
 - Never tagged: commit [93c55b4](https://github.com/luiz1919/firebase-app-kit/commit/93c55b4).
 
+[v0.17.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.16.0...v0.17.0
 [v0.16.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.15.0...v0.16.0
 [v0.15.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.14.0...v0.15.0
 [v0.14.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.13.0...v0.14.0

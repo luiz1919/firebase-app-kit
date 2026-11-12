@@ -16,7 +16,7 @@ export interface FeedbackButtonProps {
 }
 /**
  * Feedback icon (for the app header, next to the sync status) that opens a modal dialog: the
- * app's feedback (open, mine, closed), a form for new feedback with screenshots and technical
+ * app's feedback (all, by status, mine), a form for new feedback with screenshots and technical
  * details, and each item with its status and reply. Admins (admins/{uid} in Firestore) see a
  * count of new items and manage them. The draft survives closing the dialog.
  */

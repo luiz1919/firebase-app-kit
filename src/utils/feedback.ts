@@ -27,6 +27,45 @@ export const FEEDBACK_STATUS_LABELS: Readonly<Record<FeedbackStatus, string>> = 
   declined: 'Descartado',
 }
 
+/**
+ * Filters of the feedback list by status: the same word as the status, in plural ("En curso" shows
+ * the items marked "En curso"), so a filter never names something no item says.
+ */
+export const FEEDBACK_STATUS_FILTER_LABELS: Readonly<Record<FeedbackStatus, string>> = {
+  new: 'Nuevos',
+  'in-progress': 'En curso',
+  done: 'Resueltos',
+  declined: 'Descartados',
+}
+
+export type FeedbackFilter = 'all' | FeedbackStatus | 'mine'
+
+export interface FeedbackFilterOption {
+  id: FeedbackFilter
+  label: string
+  /** Shown when nothing matches. */
+  empty: string
+  matches: (item: Pick<FeedbackItem, 'status' | 'createdBy'>) => boolean
+}
+
+const STATUS_EMPTY: Readonly<Record<FeedbackStatus, string>> = {
+  new: 'No hay comentarios nuevos.',
+  'in-progress': 'No hay comentarios en curso.',
+  done: 'No hay comentarios resueltos.',
+  declined: 'No hay comentarios descartados.',
+}
+
+/** The list's filters, in order: "Todos", one per status, and "Míos" (sent by `uid`). */
+export function feedbackFilters(uid: string): FeedbackFilterOption[] {
+  return [
+    { id: 'all', label: 'Todos', empty: 'Todavía no hay comentarios.', matches: () => true },
+    ...FEEDBACK_STATUSES.map((status): FeedbackFilterOption => ({
+      id: status, label: FEEDBACK_STATUS_FILTER_LABELS[status], empty: STATUS_EMPTY[status], matches: (item) => item.status === status,
+    })),
+    { id: 'mine', label: 'Míos', empty: 'Todavía no has enviado ningún comentario.', matches: (item) => item.createdBy === uid },
+  ]
+}
+
 /** Limits shared with the Firestore rules. */
 export const FEEDBACK_LIMITS = { title: 120, text: 4000, reply: 4000, version: 40, screenshots: 3 } as const
 

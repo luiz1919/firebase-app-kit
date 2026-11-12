@@ -5,7 +5,8 @@ import type { AppEnvironment } from '../env.ts'
 import { useFeedbackAdmin, useFeedbackBadge, useFeedbackList } from '../react/feedback.ts'
 import type { BuildInfo } from '../utils/build.ts'
 import { installErrorLog } from '../utils/errorLog.ts'
-import { feedbackAuthorName, formatFeedbackDate, hasUnreadReply, isOpenFeedback } from '../utils/feedback.ts'
+import { feedbackAuthorName, feedbackFilters, formatFeedbackDate, hasUnreadReply } from '../utils/feedback.ts'
+import type { FeedbackFilter } from '../utils/feedback.ts'
 import type { FeedbackItem } from '../utils/feedback.ts'
 import { FeedbackBadges } from './FeedbackBadges.tsx'
 import { FeedbackDetail } from './FeedbackDetail.tsx'
@@ -29,13 +30,12 @@ export interface FeedbackButtonProps {
 }
 
 type View = { name: 'list' } | { name: 'new' } | { name: 'edit'; id: string } | { name: 'detail'; id: string; notice?: string }
-type Filter = 'waiting' | 'open' | 'mine' | 'closed'
 
 const VIEW_TITLES: Record<View['name'], string> = { list: 'Comentarios', new: 'Nuevo comentario', edit: 'Editar comentario', detail: 'Comentario' }
 
 /**
  * Feedback icon (for the app header, next to the sync status) that opens a modal dialog: the
- * app's feedback (open, mine, closed), a form for new feedback with screenshots and technical
+ * app's feedback (all, by status, mine), a form for new feedback with screenshots and technical
  * details, and each item with its status and reply. Admins (admins/{uid} in Firestore) see a
  * count of new items and manage them. The draft survives closing the dialog.
  */
@@ -82,7 +82,7 @@ export function FeedbackButton({ db, user, appName, build, githubRepo, environme
             setDraft={setDraft}
             writeError={writeError}
             setWriteError={setWriteError}
-            initialFilter={isAdmin && waiting > 0 ? 'waiting' : unreadReplies > 0 ? 'mine' : 'open'}
+            initialFilter={isAdmin && waiting > 0 ? 'new' : unreadReplies > 0 ? 'mine' : 'all'}
             titleId={titleId}
             onClose={close}
           />
@@ -99,7 +99,7 @@ interface PanelProps extends Omit<FeedbackButtonProps, 'db'> {
   setDraft: Dispatch<SetStateAction<DraftState>>
   writeError: string
   setWriteError: (message: string) => void
-  initialFilter: Filter
+  initialFilter: FeedbackFilter
   titleId: string
   onClose: () => void
 }
@@ -108,7 +108,7 @@ function FeedbackPanel(props: PanelProps) {
   const { db, initialFilter, titleId, onClose, writeError, setWriteError } = props
   const { items, ready, error } = useFeedbackList(db)
   const [views, setViews] = useState<View[]>([{ name: 'list' }])
-  const [filter, setFilter] = useState<Filter>(initialFilter)
+  const [filter, setFilter] = useState<FeedbackFilter>(initialFilter)
   const headingRef = useRef<HTMLHeadingElement>(null)
   const view = views[views.length - 1]
   const firstRender = useRef(true)
@@ -200,27 +200,16 @@ interface ListProps extends PanelProps {
   items: FeedbackItem[]
   ready: boolean
   error: string
-  filter: Filter
-  onFilter: (filter: Filter) => void
+  filter: FeedbackFilter
+  onFilter: (filter: FeedbackFilter) => void
   onNew: () => void
   onOpen: (id: string) => void
 }
 
-function FeedbackList({ items, ready, error, filter, onFilter, onNew, onOpen, user, isAdmin, appName }: ListProps) {
-  const filters: { id: Filter; label: string; matches: (item: FeedbackItem) => boolean }[] = [
-    ...(isAdmin ? [{ id: 'waiting' as const, label: 'Nuevos', matches: (item: FeedbackItem) => item.status === 'new' }] : []),
-    { id: 'open', label: 'Abiertos', matches: isOpenFeedback },
-    { id: 'mine', label: 'Míos', matches: (item) => item.createdBy === user.uid },
-    { id: 'closed', label: 'Cerrados', matches: (item) => !isOpenFeedback(item) },
-  ]
+function FeedbackList({ items, ready, error, filter, onFilter, onNew, onOpen, user, appName }: ListProps) {
+  const filters = feedbackFilters(user.uid)
   const active = filters.find((entry) => entry.id === filter) ?? filters[0]
   const shown = items.filter(active.matches)
-  const empty: Record<Filter, string> = {
-    waiting: 'No hay comentarios nuevos.',
-    open: 'No hay comentarios abiertos.',
-    mine: 'Todavía no has enviado ningún comentario.',
-    closed: 'No hay comentarios cerrados.',
-  }
 
   return (
     <div className="kit-feedback-view">
@@ -235,7 +224,7 @@ function FeedbackList({ items, ready, error, filter, onFilter, onNew, onOpen, us
       </div>
       {error && <p className="kit-error" role="alert">{error}</p>}
       {!ready && !error && <p className="kit-hint">Cargando comentarios…</p>}
-      {ready && shown.length === 0 && <p className="kit-hint">{empty[active.id]}</p>}
+      {ready && shown.length === 0 && <p className="kit-hint">{active.empty}</p>}
       {shown.length > 0 && (
         <ul className="kit-feedback-list">
           {shown.map((item) => <li key={item.id}><FeedbackRow item={item} unread={hasUnreadReply(item, user.uid)} onOpen={onOpen} /></li>)}

@@ -4,7 +4,7 @@ import { serverTimestamp } from 'firebase/firestore'
 import { feedbackDraftProblem, feedbackManagementUpdate } from '../src/feedback.ts'
 import { appendErrorEntry, describeError } from '../src/utils/errorLog.ts'
 import {
-  cleanFeedbackText, cleanFeedbackTitle, feedbackAuthorName, feedbackContextEntries, feedbackFromData, feedbackTitle, feedbackToMarkdown,
+  FEEDBACK_STATUSES, FEEDBACK_STATUS_FILTER_LABELS, FEEDBACK_STATUS_LABELS, cleanFeedbackText, cleanFeedbackTitle, feedbackAuthorName, feedbackFilters, feedbackContextEntries, feedbackFromData, feedbackTitle, feedbackToMarkdown,
   feedbackWords, githubIssueUrl, hasUnreadReply, similarFeedback, sortFeedback, splitUntitledFeedback,
 } from '../src/utils/feedback.ts'
 import type { FeedbackItem } from '../src/utils/feedback.ts'
@@ -148,4 +148,20 @@ test('the error log keeps the newest entries, shortened to one line', () => {
 test('images fit within the largest side without being enlarged', () => {
   assert.deepEqual(fitWithin(1170, 2532, 1600), { width: 739, height: 1600 })
   assert.deepEqual(fitWithin(800, 600, 1600), { width: 800, height: 600 })
+})
+
+test('the list filters by status with the same words as the status, plus everything and mine', () => {
+  for (const status of FEEDBACK_STATUSES) {
+    const label = FEEDBACK_STATUS_LABELS[status]
+    assert.ok([label, `${label}s`].includes(FEEDBACK_STATUS_FILTER_LABELS[status]), `${status}: filter "${FEEDBACK_STATUS_FILTER_LABELS[status]}" vs status "${label}"`)
+  }
+  const filters = feedbackFilters('ana')
+  assert.deepEqual(filters.map((filter) => filter.label), ['Todos', 'Nuevos', 'En curso', 'Resueltos', 'Descartados', 'Míos'])
+  const items = [item({ id: 'a', status: 'new' }), item({ id: 'b', status: 'in-progress', createdBy: 'pepe' }), item({ id: 'c', status: 'done' }), item({ id: 'd', status: 'declined', createdBy: 'pepe' })]
+  const ids = (id: string) => items.filter(filters.find((filter) => filter.id === id)!.matches).map((entry) => entry.id)
+  assert.deepEqual(ids('all'), ['a', 'b', 'c', 'd'])
+  assert.deepEqual(ids('in-progress'), ['b'])
+  assert.deepEqual(ids('declined'), ['d'])
+  assert.deepEqual(ids('mine'), ['a', 'c'])
+  for (const filter of filters) assert.ok(filter.empty.endsWith('.'), filter.id)
 })
