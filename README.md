@@ -400,10 +400,12 @@ changes first; the script only makes the release commits. It stops at the first 
    `docs(changelog): vX.Y.Z`; then writes the version to `package.json` and `package-lock.json`,
    commits them as `chore(release): vX.Y.Z` and creates the annotated tag `vX.Y.Z`. This happens
    before building, so "Acerca de" (About) shows the published version and commit.
-5. `npm run build` and publishes **Hosting only** to the given project (with `devProjectId`, it
-   first publishes `firestore.rules` to the dev project, so Pruebas behaves like production;
-   the production rules are still published by hand). If either fails, the
-   commits, the tag, the version and the changelog are undone: nothing published, nothing pushed.
+5. `npm run build` and publishes Hosting to the given project. Before it, `firestore.rules` goes
+   to the dev project with `devProjectId` (so Pruebas behaves like production) and to the
+   production project with `publishFirestoreRules: true`; without that option the production
+   rules are published by hand. If any of them fails, the rest is not published and the
+   commits, the tag, the version and the changelog are undone; rules already published stay
+   (the message says where). `--check` prints the list of what a deploy would publish.
 6. Pushes the commits and the tag together (`git push --atomic`). If the push fails, the
    app is already published: the script prints the command to push it later.
 
@@ -458,7 +460,8 @@ offline cache, so nothing mixes.
    `assertDevEnvironment(environment)` first.
 6. `scripts/deploy.mjs`: `deploy({ ..., devProjectId: 'my-app-dev' })`. The deploy checks the dev
    config belongs to it and publishes the Firestore rules there on each release. A build with a
-   dev config but no `devProjectId` is refused.
+   dev config but no `devProjectId` is refused. Add `publishFirestoreRules: true` to publish them
+   to production in the same deploy too.
 
 ## Developing the kit
 

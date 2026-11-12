@@ -8,6 +8,24 @@ Versions up to v0.11.0 were written afterwards from the tags, the commits and th
 
 ## Unreleased
 
+## [v0.16.0] - 2026-11-12
+
+### Added
+
+- Deploy option `publishFirestoreRules`: each deploy also publishes `firestore.rules` to the
+  production project, after the dev project's (`devProjectId`) and before Hosting, so both get
+  the same rules in one go. Off by default (production rules by hand, as before).
+- `publishSteps()`: the Firebase CLI calls of a deploy, in order. `--check` now prints them.
+
+### Changed
+
+- If Hosting fails after some Firestore rules were published, the "Release undone" message says
+  that those rules are already live, and where.
+
+### Upgrade
+
+- Optional: `deploy({ ..., publishFirestoreRules: true })` in the app's `scripts/deploy.mjs`.
+
 ## [v0.15.0] - 2026-11-11
 
 ### Added
@@ -312,6 +330,7 @@ Versions up to v0.11.0 were written afterwards from the tags, the commits and th
 
 - Never tagged: commit [93c55b4](https://github.com/luiz1919/firebase-app-kit/commit/93c55b4).
 
+[v0.16.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.15.0...v0.16.0
 [v0.15.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.14.0...v0.15.0
 [v0.14.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.13.0...v0.14.0
 [v0.13.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.12.0...v0.13.0

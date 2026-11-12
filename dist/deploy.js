@@ -312,6 +312,20 @@ export function devFirebaseConfigProblem(dev, prod, devProjectId) {
         return `The dev Firebase config belongs to project "${dev.projectId}", not ${devProjectId}.`;
     return null;
 }
+/**
+ * The Firebase CLI calls of a deploy, in order: the Firestore rules to the dev project (with
+ * `devProjectId`), to production (with `publishFirestoreRules`), and Hosting to production last,
+ * so a failure in the rules stops it before the new version goes live.
+ */
+export function publishSteps({ projectId, devProjectId, publishFirestoreRules }) {
+    const firebase = (only, project) => ['deploy', '--config', 'firebase.json', '--only', only, '--project', project, '--non-interactive'];
+    const rules = (project) => ({ label: `Firestore rules to ${project}`, args: firebase('firestore:rules', project), rulesProject: project });
+    return [
+        ...(devProjectId ? [rules(devProjectId)] : []),
+        ...(publishFirestoreRules ? [rules(projectId)] : []),
+        { label: `Hosting to ${projectId}`, args: firebase('hosting', projectId) },
+    ];
+}
 function askVersionType(current) {
     return new Promise((resolve) => {
         const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -343,8 +357,9 @@ function banner(appName) {
  * 3. Locally, before building (so "Acerca de" (About) shows the published version and commit): with the
  *    `changelog` option, adds the version to the changelog and commits it; then creates the release commit
  *    (version in package.json and package-lock.json) and the vX.Y.Z tag.
- * 4. Builds and publishes Hosting only (and, with `devProjectId`, the Firestore rules to the dev project
- *    first). If the build or the publish fails, the commits, tag, version and changelog are undone.
+ * 4. Builds and publishes Hosting (first the Firestore rules to the dev project with `devProjectId`, and
+ *    to production with `publishFirestoreRules`; see publishSteps). If the build or the publish fails,
+ *    the commits, tag, version and changelog are undone (rules already published stay).
  * 5. Pushes the commits and the tag. A tag on GitHub therefore always means "this version is published".
  * --check runs steps 2 and the build only (and shows what the changelog would get), without touching git or Firebase.
  */
@@ -359,12 +374,16 @@ export async function deploy(options) {
     const { projectId } = options;
     const branch = options.releaseBranch ?? 'main';
     process.chdir(root);
-    // If something fails after creating the release, it is undone: nothing was published or pushed.
+    // If something fails after creating the release, it is undone: nothing was published or pushed
+    // (except Firestore rules already published by then, which cannot be taken back).
     let undoRelease = null;
+    const publishedRules = [];
     function fail(message, code = 1) {
         if (undoRelease) {
             undoRelease();
-            console.error('↩️  Release undone (commits, tag, version and changelog): nothing was published or pushed.');
+            console.error(publishedRules.length
+                ? `↩️  Release undone (commits, tag, version and changelog): Hosting was not published and nothing was pushed, but the Firestore rules are already live in ${publishedRules.join(' and ')}.`
+                : '↩️  Release undone (commits, tag, version and changelog): nothing was published or pushed.');
         }
         console.error(`❌ ${message}`);
         process.exit(code);
@@ -468,17 +487,18 @@ export async function deploy(options) {
     }
     console.log('\n🔨 Building...');
     run('npm', ['run', 'build']);
+    const steps = publishSteps(options);
     if (checkOnly) {
+        console.log(`\n📋 A deploy would publish, in this order: ${steps.map(step => step.label).join(', ')}.`);
         console.log('\n✅ Validation passed. Nothing was published.\n');
         return;
     }
-    // Before Hosting, so a failure stops the deploy with nothing published.
-    if (options.devProjectId) {
-        console.log(`\n🧪 Publishing the Firestore rules to the dev project (${options.devProjectId})...`);
-        run('firebase', ['deploy', '--config', 'firebase.json', '--only', 'firestore:rules', '--project', options.devProjectId, '--non-interactive']);
+    for (const step of steps) {
+        console.log(`\n${step.rulesProject ? '📜' : '🚀'} Publishing ${step.label}...`);
+        run('firebase', step.args);
+        if (step.rulesProject)
+            publishedRules.push(step.rulesProject);
     }
-    console.log('\n🚀 Deploying to Firebase...');
-    run('firebase', ['deploy', '--config', 'firebase.json', '--only', 'hosting', '--project', projectId, '--non-interactive']);
     undoRelease = null;
     console.log('\n✨ Published successfully!');
     console.log(`📱 URL: https://${projectId}.web.app`);

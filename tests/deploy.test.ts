@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, test } from 'node:test'
 import {
-  addChangelogVersion, buildFirebaseConfig, buildFirebaseConfigs, devFirebaseConfigProblem, firebaseConfigProblem, githubRepoUrl, incrementVersion, isSemver, parseDeployArgs, releaseNotes,
+  addChangelogVersion, buildFirebaseConfig, buildFirebaseConfigs, devFirebaseConfigProblem, firebaseConfigProblem, githubRepoUrl, incrementVersion, isSemver, parseDeployArgs, publishSteps, releaseNotes,
   unreleasedNotes, writeVersion,
 } from '../src/deploy.ts'
 
@@ -102,6 +102,18 @@ test('devFirebaseConfigProblem: the dev project given must match, and a dev conf
   assert.match(devFirebaseConfigProblem({}, prod, 'demo-dev') ?? '', /incomplete/)
   assert.match(devFirebaseConfigProblem(dev, prod, 'other-dev') ?? '', /"demo-dev", not other-dev/)
   assert.match(devFirebaseConfigProblem({ ...dev, projectId: 'demo' }, prod, 'demo') ?? '', /production project/)
+})
+
+test('publishSteps: rules to dev, then to production if asked, and Hosting last', () => {
+  const only = (steps: ReturnType<typeof publishSteps>) => steps.map(step => `${step.args[4]}@${step.args[6]}`)
+  assert.deepEqual(only(publishSteps({ projectId: 'app' })), ['hosting@app'], 'by default, Hosting only')
+  assert.deepEqual(only(publishSteps({ projectId: 'app', devProjectId: 'app-dev' })), ['firestore:rules@app-dev', 'hosting@app'])
+  assert.deepEqual(only(publishSteps({ projectId: 'app', publishFirestoreRules: true })), ['firestore:rules@app', 'hosting@app'])
+  const both = publishSteps({ projectId: 'app', devProjectId: 'app-dev', publishFirestoreRules: true })
+  assert.deepEqual(only(both), ['firestore:rules@app-dev', 'firestore:rules@app', 'hosting@app'])
+  assert.deepEqual(both.map(step => step.rulesProject), ['app-dev', 'app', undefined])
+  assert.deepEqual(both.map(step => step.label), ['Firestore rules to app-dev', 'Firestore rules to app', 'Hosting to app'])
+  for (const step of both) assert.deepEqual(step.args.filter(arg => arg.startsWith('--')), ['--config', '--only', '--project', '--non-interactive'])
 })
 
 test('firebaseConfigProblem requires a complete config for the given project', () => {
