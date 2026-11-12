@@ -8,6 +8,10 @@ Versions up to v0.11.0 were written afterwards from the tags, the commits and th
 
 ## Unreleased
 
+_Nothing yet._
+
+## [v0.19.0] - 2026-11-12
+
 ### Changed
 
 - Kit development: `npm run release -- --minor` is enough. The summary (`-m`) is optional (the
@@ -370,6 +374,7 @@ Versions up to v0.11.0 were written afterwards from the tags, the commits and th
 
 - Never tagged: commit [93c55b4](https://github.com/luiz1919/firebase-app-kit/commit/93c55b4).
 
+[v0.19.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.18.0...v0.19.0
 [v0.18.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.17.0...v0.18.0
 [v0.17.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.16.0...v0.17.0
 [v0.16.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.15.0...v0.16.0
