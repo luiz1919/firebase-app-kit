@@ -75,9 +75,10 @@ const remoteOf = (root, branch) => git(root, ['config', '--get', `branch.${branc
 /**
  * Checks that a release can be made: on `branch`, nothing uncommitted, and up to date with its
  * remote branch. It fetches the remote (branches and tags), which also checks access to GitHub.
- * Returns the problem, or null if everything is ready.
+ * Returns the problem, or null if everything is ready. `allowUncommitted` is for releases whose
+ * commit carries the work itself (the kit's own `npm run release`).
  */
-export function gitReleaseProblem(root, branch) {
+export function gitReleaseProblem(root, branch, { allowUncommitted = false } = {}) {
     try {
         git(root, ['rev-parse', '--is-inside-work-tree']);
     }
@@ -87,7 +88,7 @@ export function gitReleaseProblem(root, branch) {
     const current = git(root, ['branch', '--show-current']);
     if (current !== branch)
         return `Releases are made from the "${branch}" branch, and you are on "${current || 'a detached HEAD'}".`;
-    if (git(root, ['status', '--porcelain']))
+    if (!allowUncommitted && git(root, ['status', '--porcelain']))
         return 'There are uncommitted changes: commit (or discard) them before deploying.';
     let remote;
     let upstream;

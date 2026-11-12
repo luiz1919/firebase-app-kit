@@ -1,6 +1,6 @@
 {
   "name": "firebase-app-kit",
-  "version": "0.17.0",
+  "version": "0.18.0",
   "private": true,
   "description": "Shared building blocks of the Vite + React + Firebase apps (CommunityAssistant, TripPlanner, Labia, Supermerk2)",
   "license": "MIT",
@@ -63,6 +63,7 @@
     "lint": "oxlint",
     "test": "node --test tests/*.test.ts",
     "check": "npm run lint && npm run typecheck && npm test && npm run build",
+    "release": "node scripts/release.ts",
     "test:rules": "firebase emulators:exec --config firebase.emulator.json --project demo-firebase-app-kit --only firestore \"node --test tests/emulator/*.test.ts\""
   },
   "peerDependencies": {

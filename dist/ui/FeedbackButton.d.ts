@@ -9,7 +9,7 @@ export interface FeedbackButtonProps {
     appName: string;
     /** The app's build constants, like AboutButton: sent with the feedback. */
     build: BuildInfo;
-    /** "owner/repo" on GitHub: admins get a "Crear issue en GitHub" link. */
+    /** "owner/repo" on GitHub: admins get a "Crear issue en GitHub" link (not on resolved items). */
     githubRepo?: string;
     /** Project in use (initFirebase(...).environment): in "Pruebas" the dialog says the feedback stays there. */
     environment?: AppEnvironment;

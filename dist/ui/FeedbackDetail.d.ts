@@ -14,7 +14,9 @@ interface FeedbackDetailProps {
     notice?: string;
     onEdit: () => void;
     onDeleted: () => void;
+    /** An admin saved it as "Resuelto" (done): nothing left to do here, back to the list. */
+    onResolved: (notice: string) => void;
     onWriteError: (message: string) => void;
 }
-export declare function FeedbackDetail({ db, user, isAdmin, appName, build, githubRepo, item, ready, notice, onEdit, onDeleted, onWriteError }: FeedbackDetailProps): import("react").JSX.Element;
+export declare function FeedbackDetail({ db, user, isAdmin, appName, build, githubRepo, item, ready, notice, onEdit, onDeleted, onResolved, onWriteError }: FeedbackDetailProps): import("react").JSX.Element;
 export {};

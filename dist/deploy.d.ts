@@ -51,9 +51,12 @@ export declare function tagExists(root: string, tag: string): boolean;
 /**
  * Checks that a release can be made: on `branch`, nothing uncommitted, and up to date with its
  * remote branch. It fetches the remote (branches and tags), which also checks access to GitHub.
- * Returns the problem, or null if everything is ready.
+ * Returns the problem, or null if everything is ready. `allowUncommitted` is for releases whose
+ * commit carries the work itself (the kit's own `npm run release`).
  */
-export declare function gitReleaseProblem(root: string, branch: string): string | null;
+export declare function gitReleaseProblem(root: string, branch: string, { allowUncommitted }?: {
+    allowUncommitted?: boolean;
+}): string | null;
 /** New changelog content to commit with a release; `file` is relative to the app root. */
 export interface ChangelogChange {
     file: string;

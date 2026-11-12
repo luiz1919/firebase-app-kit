@@ -25,10 +25,12 @@ interface FeedbackDetailProps {
   notice?: string
   onEdit: () => void
   onDeleted: () => void
+  /** An admin saved it as "Resuelto" (done): nothing left to do here, back to the list. */
+  onResolved: (notice: string) => void
   onWriteError: (message: string) => void
 }
 
-export function FeedbackDetail({ db, user, isAdmin, appName, build, githubRepo, item, ready, notice, onEdit, onDeleted, onWriteError }: FeedbackDetailProps) {
+export function FeedbackDetail({ db, user, isAdmin, appName, build, githubRepo, item, ready, notice, onEdit, onDeleted, onResolved, onWriteError }: FeedbackDetailProps) {
   const mine = item?.createdBy === user.uid
   // Screenshots and details are only readable once the feedback is on the server.
   const canSeePrivate = Boolean(item) && (mine || isAdmin) && !item?.sending
@@ -82,6 +84,7 @@ export function FeedbackDetail({ db, user, isAdmin, appName, build, githubRepo, 
           githubRepo={githubRepo}
           diagnostics={diagnostics.value}
           onDeleted={onDeleted}
+          onResolved={onResolved}
           onWriteError={onWriteError}
         />
       )}
@@ -194,10 +197,11 @@ interface AdminPanelProps {
   githubRepo?: string
   diagnostics: FeedbackDiagnostics | null
   onDeleted: () => void
+  onResolved: (notice: string) => void
   onWriteError: (message: string) => void
 }
 
-function AdminPanel({ db, user, item, appName, build, githubRepo, diagnostics, onDeleted, onWriteError }: AdminPanelProps) {
+function AdminPanel({ db, user, item, appName, build, githubRepo, diagnostics, onDeleted, onResolved, onWriteError }: AdminPanelProps) {
   const [status, setStatus] = useState<FeedbackStatus>(item.status)
   const [reply, setReply] = useState(item.reply)
   const [resolvedVersion, setResolvedVersion] = useState(item.resolvedVersion)
@@ -205,6 +209,8 @@ function AdminPanel({ db, user, item, appName, build, githubRepo, diagnostics, o
   const id = useId()
   const changed = status !== item.status || reply.trim() !== item.reply || resolvedVersion.trim() !== item.resolvedVersion
   const report = { appName, diagnostics }
+  // Markdown and GitHub issues are for work still to do; the saved status decides, not the menu.
+  const pending = item.status !== 'done'
 
   function changeStatus(next: FeedbackStatus) {
     setStatus(next)
@@ -215,8 +221,13 @@ function AdminPanel({ db, user, item, appName, build, githubRepo, diagnostics, o
   function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!changed) return
+    const savedLater = !navigator.onLine
     manageFeedback(db, item, { status, reply, resolvedVersion: status === 'done' ? resolvedVersion : '' }, user.uid)
       .catch((saveError: unknown) => onWriteError(writeErrorMessage(saveError, 'guardar los cambios')))
+    if (status === 'done') {
+      onResolved(`«${item.title}» guardado como resuelto${savedLater ? ' en este dispositivo: se subirá al volver la conexión' : ''}.`)
+      return
+    }
     setMessage('Guardado.')
   }
 
@@ -259,8 +270,8 @@ function AdminPanel({ db, user, item, appName, build, githubRepo, diagnostics, o
       </form>
       {message && <p className="kit-notice kit-notice-ok" role="status">{message}</p>}
       <div className="kit-actions">
-        <button className="kit-secondary-button" type="button" onClick={() => void copy()}><CopyIcon />Copiar como Markdown</button>
-        {githubRepo && (
+        {pending && <button className="kit-secondary-button" type="button" onClick={() => void copy()}><CopyIcon />Copiar como Markdown</button>}
+        {pending && githubRepo && (
           <a className="kit-secondary-button" href={githubIssueUrl(githubRepo, item, report)} target="_blank" rel="noopener noreferrer">
             <ExternalLinkIcon size={16} />Crear issue en GitHub
           </a>

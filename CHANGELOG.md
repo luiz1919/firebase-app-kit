@@ -8,6 +8,27 @@ Versions up to v0.11.0 were written afterwards from the tags, the commits and th
 
 ## Unreleased
 
+_Nothing yet._
+
+## [v0.18.0] - 2026-11-12
+
+### Changed
+
+- Feedback (`FeedbackButton`), admin: saving an item as "Resuelto" (resolved) goes back to the
+  "Comentarios" list, which says «Título» guardado como resuelto (offline: saved on this device,
+  uploaded when the connection is back). Other statuses stay on the item, as before.
+- Resolved items no longer show "Copiar como Markdown" or "Crear issue en GitHub" (only
+  "Eliminar"). The saved status decides: picking "Resuelto" in the menu without saving keeps them,
+  and setting an item back to another status brings them back.
+- A notice shows once: going on to another view and back, the list or item shows without it.
+
+### Added
+
+- `gitReleaseProblem(root, branch, { allowUncommitted: true })` (deploy): the same checks without
+  requiring a clean tree.
+- Kit development: `npm run release -- --minor -m "summary"` bumps the version, moves "Unreleased"
+  in this file to it, runs the checks, commits (with `dist/`), tags and pushes. See the README.
+
 ## [v0.17.0] - 2026-11-12
 
 ### Changed
@@ -345,6 +366,7 @@ Versions up to v0.11.0 were written afterwards from the tags, the commits and th
 
 - Never tagged: commit [93c55b4](https://github.com/luiz1919/firebase-app-kit/commit/93c55b4).
 
+[v0.18.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.17.0...v0.18.0
 [v0.17.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.16.0...v0.17.0
 [v0.16.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.15.0...v0.16.0
 [v0.15.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.14.0...v0.15.0

@@ -23,15 +23,17 @@ export interface FeedbackButtonProps {
   appName: string
   /** The app's build constants, like AboutButton: sent with the feedback. */
   build: BuildInfo
-  /** "owner/repo" on GitHub: admins get a "Crear issue en GitHub" link. */
+  /** "owner/repo" on GitHub: admins get a "Crear issue en GitHub" link (not on resolved items). */
   githubRepo?: string
   /** Project in use (initFirebase(...).environment): in "Pruebas" the dialog says the feedback stays there. */
   environment?: AppEnvironment
 }
 
-type View = { name: 'list' } | { name: 'new' } | { name: 'edit'; id: string } | { name: 'detail'; id: string; notice?: string }
+type View = { name: 'list'; notice?: string } | { name: 'new' } | { name: 'edit'; id: string } | { name: 'detail'; id: string; notice?: string }
 
 const VIEW_TITLES: Record<View['name'], string> = { list: 'Comentarios', new: 'Nuevo comentario', edit: 'Editar comentario', detail: 'Comentario' }
+
+const withoutNotice = (view: View): View => ('notice' in view ? { ...view, notice: undefined } : view)
 
 /**
  * Feedback icon (for the app header, next to the sync status) that opens a modal dialog: the
@@ -123,7 +125,8 @@ function FeedbackPanel(props: PanelProps) {
     headingRef.current?.focus()
   }, [views])
 
-  const go = useCallback((next: View) => setViews((current) => [...current, next]), [])
+  // A notice is said once: back from the next view, the list or detail shows without it.
+  const go = useCallback((next: View) => setViews((current) => [...current.map(withoutNotice), next]), [])
   const back = useCallback(() => setViews((current) => (current.length > 1 ? current.slice(0, -1) : current)), [])
   /** Replaces the whole history (after sending or deleting, "back" goes to the list). */
   const reset = useCallback((next: View) => setViews(next.name === 'list' ? [next] : [{ name: 'list' }, next]), [])
@@ -138,6 +141,7 @@ function FeedbackPanel(props: PanelProps) {
           items={items}
           ready={ready}
           error={error}
+          notice={view.notice}
           filter={filter}
           onFilter={setFilter}
           onNew={() => go({ name: 'new' })}
@@ -168,6 +172,7 @@ function FeedbackPanel(props: PanelProps) {
         notice={view.name === 'detail' ? view.notice : undefined}
         onEdit={() => go({ name: 'edit', id: view.id })}
         onDeleted={() => reset({ name: 'list' })}
+        onResolved={(notice) => reset({ name: 'list', notice })}
         onWriteError={setWriteError}
       />
     )
@@ -200,19 +205,21 @@ interface ListProps extends PanelProps {
   items: FeedbackItem[]
   ready: boolean
   error: string
+  notice?: string
   filter: FeedbackFilter
   onFilter: (filter: FeedbackFilter) => void
   onNew: () => void
   onOpen: (id: string) => void
 }
 
-function FeedbackList({ items, ready, error, filter, onFilter, onNew, onOpen, user, appName }: ListProps) {
+function FeedbackList({ items, ready, error, notice, filter, onFilter, onNew, onOpen, user, appName }: ListProps) {
   const filters = feedbackFilters(user.uid)
   const active = filters.find((entry) => entry.id === filter) ?? filters[0]
   const shown = items.filter(active.matches)
 
   return (
     <div className="kit-feedback-view">
+      {notice && <p className="kit-notice kit-notice-ok" role="status">{notice}</p>}
       <p className="kit-hint">¿Algo no funciona o echas algo en falta en {appName}? Cuéntanoslo. Antes, mira si alguien ya lo ha propuesto.</p>
       <button className="kit-primary-button kit-feedback-new" type="button" onClick={onNew}><PlusIcon />Nuevo comentario</button>
       <div className="kit-feedback-filters" role="group" aria-label="Mostrar">
