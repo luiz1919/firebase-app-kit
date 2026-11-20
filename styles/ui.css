@@ -92,7 +92,8 @@
 /* Search box: magnifier on the left, × on the right once there is text */
 .kit-search { position: relative; display: flex; align-items: center; }
 .kit-search > .kit-icon { position: absolute; left: 14px; color: var(--kit-muted, #656f69); pointer-events: none; }
-.kit-search input.kit-input { padding-left: 42px; padding-right: 48px; }
+/* Specific enough to beat app-wide input rules (e.g. input:not([type='checkbox']) { padding: ... }). */
+.kit-search .kit-input[type='search'] { padding-left: 42px; padding-right: 48px; }
 .kit-search input.kit-input::-webkit-search-cancel-button, .kit-search input.kit-input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; display: none; }
 .kit-search .kit-search-clear { position: absolute; right: 3px; top: 3px; }
 

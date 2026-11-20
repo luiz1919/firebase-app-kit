@@ -142,9 +142,11 @@ const about = {
   as soon as there is text, clears it and leaves the cursor in the field; Escape clears it too (only
   with text, so it still closes a dialog around an empty field). The browsers' own × is hidden, so
   it looks the same everywhere. Props: `value`, `onChange`, `placeholder` (default "Buscar"),
-  `label` (accessible name; the placeholder if omitted), `id`, `autoFocus`, `className`. It is a
-  `kit-input` (46 px, `--kit-radius`): an app that wants other measures overrides
-  `.kit-search input.kit-input`.
+  `label` (accessible name; the placeholder if omitted), `id`, `className` (of the wrapper),
+  `inputRef` (the `<input>`, to focus it), and any other `<input>` attribute (`lang`, `maxLength`,
+  `spellCheck`, `autoCapitalize`, `name`, `required`, `autoFocus`, `onKeyDown`...), which goes to
+  the input. Inside a `<form>`, Enter submits it as with any field. It is a `kit-input` (46 px,
+  `--kit-radius`): an app that wants other measures overrides `.kit-search input.kit-input`.
 - `SyncStatus`: cloud icon button (coloured by state) that opens a centred modal `<dialog>`, like
   "Acerca de": the state with its icon as the title, the explanation, a close button and, in the
   error state with `onDismissError`, "Entendido". It fits phones (at most 420 px wide, 16 px from

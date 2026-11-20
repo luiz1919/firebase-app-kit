@@ -10,6 +10,20 @@ Versions up to v0.11.0 were written afterwards from the tags, the commits and th
 
 _Nothing yet._
 
+## [v0.22.0] - 2026-11-21
+
+### Changed
+
+- `SearchField` passes any other `<input>` attribute to the input (`lang`, `maxLength`,
+  `spellCheck`, `autoCapitalize`, `name`, `required`, `onKeyDown`...) and takes `inputRef`, so it
+  also fits the search boxes that live in a form, have a shortcut key or need their own language.
+  `onKeyDown` runs before the box's own Escape (which clears it only if nothing handled the key).
+- The box's padding (room for the magnifier and the ×) wins over an app-wide `input { padding }` rule.
+
+### Upgrade
+
+- Nothing is required.
+
 ## [v0.21.0] - 2026-11-20
 
 ### Added
@@ -407,6 +421,7 @@ _Nothing yet._
 
 - Never tagged: commit [93c55b4](https://github.com/luiz1919/firebase-app-kit/commit/93c55b4).
 
+[v0.22.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.21.0...v0.22.0
 [v0.21.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.20.0...v0.21.0
 [v0.20.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.19.0...v0.20.0
 [v0.19.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.18.0...v0.19.0
