@@ -12,6 +12,8 @@ export { FeedbackButton } from './FeedbackButton.tsx';
 export type { FeedbackButtonProps } from './FeedbackButton.tsx';
 export { LoginForm } from './LoginForm.tsx';
 export type { LoginFormProps } from './LoginForm.tsx';
+export { SearchField } from './SearchField.tsx';
+export type { SearchFieldProps } from './SearchField.tsx';
 export { SyncStatus } from './SyncStatus.tsx';
 export type { SyncStatusProps } from './SyncStatus.tsx';
 export type { BuildInfo } from '../utils/build.ts';

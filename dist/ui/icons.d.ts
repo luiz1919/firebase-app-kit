@@ -49,3 +49,6 @@ export declare const PencilIcon: ({ size }: {
 export declare const TrashIcon: ({ size }: {
     size?: number;
 }) => import("react").JSX.Element;
+export declare const SearchIcon: ({ size }: {
+    size?: number;
+}) => import("react").JSX.Element;

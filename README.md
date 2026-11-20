@@ -102,7 +102,7 @@ import './index.css'
 ```
 
 ```tsx
-import { AboutButton, AboutPage, LoginForm, SyncStatus } from 'firebase-app-kit/ui'
+import { AboutButton, AboutPage, LoginForm, SearchField, SyncStatus } from 'firebase-app-kit/ui'
 
 // The app passes its build constants: Vite's define is not reliable inside pre-bundled dependencies.
 const build = { version: __APP_VERSION__, commit: __APP_COMMIT__, buildTime: __BUILD_TIME__ }
@@ -121,6 +121,9 @@ const about = {
 // The form only: email with the domain chips, password with show/hide, errors, "Entrar".
 // The app owns the page layout and heading around it. With auth null it says Firebase is not configured.
 
+<SearchField value={search} onChange={setSearch} placeholder="Buscar producto" />
+// A search box for filtering what is on screen: magnifier, and an × that clears it (also Escape).
+
 <SyncStatus state={syncState} error={error} details={{ offline: 'Text for this app' }} onDismissError={clearError} />
 // details: the app's explanation per state (missing ones use SYNC_DETAILS). In the error state the
 // dialog shows `error`, or else details.error. onDismissError (optional) adds an "Entendido" button.
@@ -135,6 +138,13 @@ const about = {
 - `AboutButton`: 40 px info icon (`kit-icon-button`) that opens the same content in a modal
   `<dialog>`, for screens without "Ajustes" such as the sign-in screen. Escape, the close button or
   a tap on the backdrop close it.
+- `SearchField`: the search box every app uses to filter a list: a magnifier, and an × that appears
+  as soon as there is text, clears it and leaves the cursor in the field; Escape clears it too (only
+  with text, so it still closes a dialog around an empty field). The browsers' own × is hidden, so
+  it looks the same everywhere. Props: `value`, `onChange`, `placeholder` (default "Buscar"),
+  `label` (accessible name; the placeholder if omitted), `id`, `autoFocus`, `className`. It is a
+  `kit-input` (46 px, `--kit-radius`): an app that wants other measures overrides
+  `.kit-search input.kit-input`.
 - `SyncStatus`: cloud icon button (coloured by state) that opens a centred modal `<dialog>`, like
   "Acerca de": the state with its icon as the title, the explanation, a close button and, in the
   error state with `onDismissError`, "Entendido". It fits phones (at most 420 px wide, 16 px from

@@ -1,5 +1,5 @@
 /*
- * firebase-app-kit/ui: styles of AboutButton, LoginForm, SyncStatus, AiSettingsPanel and FeedbackButton.
+ * firebase-app-kit/ui: styles of AboutButton, LoginForm, SearchField, SyncStatus, AiSettingsPanel and FeedbackButton.
  *
  * Import it once, before the app's own CSS (so the app can override any rule), and theme it with
  * these variables on :root (all optional; the fallbacks are TripPlanner's colors):
@@ -88,6 +88,13 @@
 /* Specific enough to beat app-wide input rules (e.g. input:not([type='checkbox']) { padding: ... }). */
 .kit-login-form .kit-password-field .kit-input { padding-right: 52px; }
 .kit-password-field .kit-icon-button { position: absolute; right: 3px; top: 3px; }
+
+/* Search box: magnifier on the left, × on the right once there is text */
+.kit-search { position: relative; display: flex; align-items: center; }
+.kit-search > .kit-icon { position: absolute; left: 14px; color: var(--kit-muted, #656f69); pointer-events: none; }
+.kit-search input.kit-input { padding-left: 42px; padding-right: 48px; }
+.kit-search input.kit-input::-webkit-search-cancel-button, .kit-search input.kit-input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; display: none; }
+.kit-search .kit-search-clear { position: absolute; right: 3px; top: 3px; }
 
 /* Sync status: the cloud button and its dialog (the icon in the dialog's title has the state's colour). */
 .kit-sync { display: flex; }

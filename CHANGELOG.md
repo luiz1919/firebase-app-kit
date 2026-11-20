@@ -8,7 +8,16 @@ Versions up to v0.11.0 were written afterwards from the tags, the commits and th
 
 ## Unreleased
 
-_Nothing yet._
+### Added
+
+- `SearchField` in `firebase-app-kit/ui` (styles in `ui.css`, `.kit-search`): the search box for
+  filtering a list, with a magnifier and an × that clears it (also with Escape), the same on every
+  phone and browser. Apps can replace their own search boxes with it.
+
+### Upgrade
+
+- Nothing is required: apps keep working as they are. To use it, `import { SearchField } from
+  'firebase-app-kit/ui'` and remove the app's own box and its CSS.
 
 ## [v0.20.0] - 2026-11-12
 

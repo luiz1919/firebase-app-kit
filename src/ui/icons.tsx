@@ -78,3 +78,7 @@ export const PencilIcon = ({ size = 16 }: { size?: number }) => (
 export const TrashIcon = ({ size = 16 }: { size?: number }) => (
   <Icon size={size}><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></Icon>
 )
+
+export const SearchIcon = ({ size = 18 }: { size?: number }) => (
+  <Icon size={size}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></Icon>
+)
