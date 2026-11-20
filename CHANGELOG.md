@@ -8,6 +8,10 @@ Versions up to v0.11.0 were written afterwards from the tags, the commits and th
 
 ## Unreleased
 
+_Nothing yet._
+
+## [v0.21.0] - 2026-11-20
+
 ### Added
 
 - `SearchField` in `firebase-app-kit/ui` (styles in `ui.css`, `.kit-search`): the search box for
@@ -403,6 +407,7 @@ Versions up to v0.11.0 were written afterwards from the tags, the commits and th
 
 - Never tagged: commit [93c55b4](https://github.com/luiz1919/firebase-app-kit/commit/93c55b4).
 
+[v0.21.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.20.0...v0.21.0
 [v0.20.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.19.0...v0.20.0
 [v0.19.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.18.0...v0.19.0
 [v0.18.0]: https://github.com/luiz1919/firebase-app-kit/compare/v0.17.0...v0.18.0
